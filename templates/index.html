@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Negativ – Film Negative Inverter</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0a0a0a;
+            --surface: #161616;
+            --surface-hover: #1e1e1e;
+            --border: #2a2a2a;
+            --text: #e8e8e8;
+            --text-muted: #888;
+            --accent: #e07040;
+            --accent-hover: #f08050;
+            --radius: 12px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        header h1 span { color: var(--accent); }
+
+        header p {
+            color: var(--text-muted);
+            margin-top: 0.4rem;
+            font-size: 0.95rem;
+        }
+
+        /* Drop Zone */
+        .dropzone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            background: var(--surface);
+        }
+
+        .dropzone:hover, .dropzone.dragover {
+            border-color: var(--accent);
+            background: var(--surface-hover);
+        }
+
+        .dropzone-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.8rem;
+            opacity: 0.6;
+        }
+
+        .dropzone-text { color: var(--text-muted); }
+        .dropzone-text strong { color: var(--text); }
+
+        .dropzone-formats {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+
+        #file-input { display: none; }
+
+        /* Controls */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        @media (max-width: 600px) {
+            .controls { grid-template-columns: 1fr; }
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.4rem;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent);
+        }
+
+        .control-value {
+            font-size: 0.85rem;
+            color: var(--accent);
+            font-weight: 600;
+            float: right;
+        }
+
+        .control-group select {
+            width: 100%;
+            padding: 0.5rem;
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        /* File List */
+        .file-list {
+            margin-top: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.8rem 1rem;
+            background: var(--surface);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .file-item .name {
+            flex: 1;
+            font-size: 0.9rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-item .size {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .file-item .status {
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+
+        .status-pending { color: var(--text-muted); }
+        .status-processing { color: var(--accent); }
+        .status-done { color: #4a4; }
+        .status-error { color: #c44; }
+
+        .file-item .btn-download {
+            padding: 0.35rem 0.8rem;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .file-item .btn-download:hover { background: var(--accent-hover); }
+
+        /* Process Button */
+        .actions {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 0.7rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, opacity 0.2s;
+        }
+
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover:not(:disabled) { background: var(--surface-hover); }
+
+        /* Preview */
+        .preview-section {
+            margin-top: 2rem;
+            display: none;
+        }
+
+        .preview-section.visible { display: block; }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            .preview-grid { grid-template-columns: 1fr; }
+        }
+
+        .preview-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .preview-card h3 {
+            padding: 0.6rem 1rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .preview-card img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Progress */
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            margin-top: 1rem;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar.visible { display: block; }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        footer {
+            margin-top: 3rem;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        footer a { color: var(--accent); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span>Negativ</span> – Film Negative Inverter</h1>
+            <p>Orange-Mask-Korrektur per kanalgetrennter Histogrammnormalisierung</p>
+        </header>
+
+        <div class="dropzone" id="dropzone">
+            <div class="dropzone-icon">&#x1F4F7;</div>
+            <div class="dropzone-text">
+                <strong>Negativ-Scans hierhin ziehen</strong><br>
+                oder klicken zum Auswählen
+            </div>
+            <div class="dropzone-formats">
+                TIFF &middot; PNG &middot; JPEG{% if heic_supported %} &middot; HEIC{% endif %} &middot; max 100 MB
+            </div>
+            <input type="file" id="file-input" multiple
+                   accept=".tif,.tiff,.png,.jpg,.jpeg{% if heic_supported %},.heic,.heif{% endif %}">
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Clipping <span class="control-value" id="clip-value">0.1%</span></label>
+                <input type="range" id="clip" min="0" max="2" step="0.05" value="0.1">
+            </div>
+            <div class="control-group">
+                <label>Gamma <span class="control-value" id="gamma-value">1.2</span></label>
+                <input type="range" id="gamma" min="0.5" max="2.5" step="0.05" value="1.2">
+            </div>
+            <div class="control-group">
+                <label>Ausgabeformat</label>
+                <select id="format">
+                    <option value="png">PNG (verlustfrei)</option>
+                    <option value="tiff">TIFF (16-bit)</option>
+                    <option value="jpeg">JPEG (komprimiert)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="file-list" id="file-list"></div>
+
+        <div class="progress-bar" id="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" id="btn-process" disabled>Invertieren</button>
+            <button class="btn btn-secondary" id="btn-clear" disabled>Zurücksetzen</button>
+        </div>
+
+        <div class="preview-section" id="preview-section">
+            <div class="preview-grid">
+                <div class="preview-card">
+                    <h3>Original (Negativ)</h3>
+                    <img id="preview-original" alt="Original">
+                </div>
+                <div class="preview-card">
+                    <h3>Ergebnis (Positiv)</h3>
+                    <img id="preview-result" alt="Ergebnis">
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <a href="https://github.com/OrvilleWilbur/Negativ" target="_blank">GitHub</a>
+            &middot; MIT License
+        </footer>
+    </div>
+
+    <script>
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('file-input');
+        const fileList = document.getElementById('file-list');
+        const btnProcess = document.getElementById('btn-process');
+        const btnClear = document.getElementById('btn-clear');
+        const progressBar = document.getElementById('progress-bar');
+        const progressFill = document.getElementById('progress-fill');
+        const previewSection = document.getElementById('preview-section');
+        const previewOriginal = document.getElementById('preview-original');
+        const previewResult = document.getElementById('preview-result');
+        const clipSlider = document.getElementById('clip');
+        const gammaSlider = document.getElementById('gamma');
+        const clipValue = document.getElementById('clip-value');
+        const gammaValue = document.getElementById('gamma-value');
+        const formatSelect = document.getElementById('format');
+
+        let files = [];
+        let results = new Map(); // filename -> blob URL
+
+        // Slider labels
+        clipSlider.addEventListener('input', () => {
+            clipValue.textContent = clipSlider.value + '%';
+        });
+        gammaSlider.addEventListener('input', () => {
+            gammaValue.textContent = gammaSlider.value;
+        });
+
+        // Drag & Drop
+        dropzone.addEventListener('click', () => fileInput.click());
+        dropzone.addEventListener('dragover', e => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('dragover');
+        });
+        dropzone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            addFiles(e.dataTransfer.files);
+        });
+        fileInput.addEventListener('change', () => {
+            addFiles(fileInput.files);
+            fileInput.value = '';
+        });
+
+        function addFiles(newFiles) {
+            for (const f of newFiles) {
+                if (!files.some(existing => existing.name === f.name && existing.size === f.size)) {
+                    files.push(f);
+                }
+            }
+            renderFileList();
+            btnProcess.disabled = files.length === 0;
+            btnClear.disabled = files.length === 0;
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function renderFileList() {
+            fileList.innerHTML = '';
+            files.forEach((f, i) => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.dataset.index = i;
+
+                const resultUrl = results.get(f.name);
+                const statusEl = resultUrl
+                    ? `<a class="btn-download" href="${resultUrl}" download="${f.name.replace(/\.[^.]+$/, '')}_positive.${formatSelect.value === 'jpeg' ? 'jpg' : formatSelect.value === 'tiff' ? 'tif' : 'png'}">Download</a>`
+                    : `<span class="status status-pending" data-status="${i}">Bereit</span>`;
+
+                div.innerHTML = `
+                    <span class="name">${f.name}</span>
+                    <span class="size">${formatSize(f.size)}</span>
+                    ${statusEl}
+                `;
+
+                // Click to show preview of original
+                div.addEventListener('click', (e) => {
+                    if (e.target.closest('.btn-download')) return;
+                    showOriginalPreview(f);
+                });
+
+                fileList.appendChild(div);
+            });
+        }
+
+        function showOriginalPreview(file) {
+            const url = URL.createObjectURL(file);
+            previewOriginal.src = url;
+            previewResult.src = '';
+            previewSection.classList.add('visible');
+        }
+
+        // Process all files
+        btnProcess.addEventListener('click', async () => {
+            if (files.length === 0) return;
+
+            btnProcess.disabled = true;
+            progressBar.classList.add('visible');
+            results.clear();
+
+            for (let i = 0; i < files.length; i++) {
+                const f = files[i];
+                const statusEl = document.querySelector(`[data-status="${i}"]`);
+                if (statusEl) {
+                    statusEl.textContent = 'Verarbeite...';
+                    statusEl.className = 'status status-processing';
+                }
+
+                progressFill.style.width = ((i / files.length) * 100) + '%';
+
+                const formData = new FormData();
+                formData.append('file', f);
+                formData.append('clip', clipSlider.value);
+                formData.append('gamma', gammaSlider.value);
+                formData.append('format', formatSelect.value);
+
+                try {
+                    const resp = await fetch('/api/process', { method: 'POST', body: formData });
+                    if (!resp.ok) {
+                        const err = await resp.json();
+                        throw new Error(err.error || 'Verarbeitung fehlgeschlagen');
+                    }
+                    const blob = await resp.blob();
+                    const url = URL.createObjectURL(blob);
+                    results.set(f.name, url);
+
+                    // Show preview for last processed image
+                    if (i === files.length - 1 || files.length === 1) {
+                        previewOriginal.src = URL.createObjectURL(f);
+                        previewResult.src = url;
+                        previewSection.classList.add('visible');
+                    }
+                } catch (err) {
+                    if (statusEl) {
+                        statusEl.textContent = err.message;
+                        statusEl.className = 'status status-error';
+                    }
+                    continue;
+                }
+
+                renderFileList();
+            }
+
+            progressFill.style.width = '100%';
+            setTimeout(() => {
+                progressBar.classList.remove('visible');
+                progressFill.style.width = '0%';
+            }, 800);
+
+            btnProcess.disabled = false;
+        });
+
+        // Clear
+        btnClear.addEventListener('click', () => {
+            files = [];
+            results.forEach(url => URL.revokeObjectURL(url));
+            results.clear();
+            renderFileList();
+            btnProcess.disabled = true;
+            btnClear.disabled = true;
+            previewSection.classList.remove('visible');
+        });
+    </script>
+</body>
+</html>

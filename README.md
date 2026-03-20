@@ -38,9 +38,32 @@ python invert_negatives.py ./scans -o ./positive -c 0.5 -g 1.3
 
 ### Supported formats
 
-`.tif` `.tiff` `.png` `.jpg` `.jpeg`
+`.tif` `.tiff` `.png` `.jpg` `.jpeg` `.heic` `.heif`
 
 TIFF inputs are saved as TIFF (preserving 16-bit depth), everything else is saved as lossless PNG.
+
+## Web App
+
+A Flask web interface with drag & drop upload, live preview, adjustable sliders for clipping/gamma, and output format selection (PNG, TIFF, JPEG).
+
+```bash
+# Local
+pip install -r requirements.txt
+python app.py
+
+# Docker
+docker build -t negativ .
+docker run -p 5000:5000 negativ
+```
+
+Then open http://localhost:5000.
+
+### Deploy to Render
+
+1. Push this repo to GitHub
+2. Create a new **Web Service** on [render.com](https://render.com)
+3. Connect the repo, select **Docker** as environment
+4. Done – Render builds and deploys automatically
 
 ## License
 

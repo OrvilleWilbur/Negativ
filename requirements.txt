@@ -1,3 +1,7 @@
-opencv-python>=4.8
+opencv-python-headless>=4.8
 numpy>=1.24
 tqdm>=4.65
+flask>=3.0
+gunicorn>=21.2
+pillow>=10.0
+pillow-heif>=0.16

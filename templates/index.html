@@ -16,6 +16,7 @@
             --text-muted: #888;
             --accent: #e07040;
             --accent-hover: #f08050;
+            --accent-green: #4a4;
             --radius: 12px;
         }
 
@@ -67,6 +68,8 @@
             border-color: var(--accent);
             background: var(--surface-hover);
         }
+
+        .dropzone.has-image { padding: 1rem; }
 
         .dropzone-icon {
             font-size: 2.5rem;
@@ -126,6 +129,130 @@
             font-size: 0.9rem;
         }
 
+        /* Sections */
+        .section {
+            margin-top: 1.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem 1.2rem;
+        }
+
+        .section summary {
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .section summary:hover { color: var(--text); }
+
+        .range-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 0.15rem;
+        }
+
+        /* Preview */
+        .preview-section {
+            margin-top: 2rem;
+            display: none;
+        }
+
+        .preview-section.visible { display: block; }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            .preview-grid { grid-template-columns: 1fr; }
+        }
+
+        .preview-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            position: relative;
+        }
+
+        .preview-card h3 {
+            padding: 0.6rem 1rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .preview-card img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .preview-spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            color: var(--accent);
+            font-size: 0.85rem;
+            background: rgba(10,10,10,0.8);
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+        }
+
+        .preview-spinner.visible { display: block; }
+
+        /* Actions */
+        .actions {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 0.6rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.7rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, opacity 0.2s;
+        }
+
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+        .btn-auto {
+            background: #2a6b3a;
+            color: #fff;
+        }
+
+        .btn-auto:hover:not(:disabled) { background: #358a48; }
+
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover:not(:disabled) { background: var(--surface-hover); }
+
         /* File List */
         .file-list {
             margin-top: 1.5rem;
@@ -142,7 +269,13 @@
             background: var(--surface);
             border-radius: 8px;
             border: 1px solid var(--border);
+            cursor: pointer;
+            transition: border-color 0.2s;
         }
+
+        .file-item:hover { border-color: var(--accent); }
+
+        .file-item.active { border-color: var(--accent); background: var(--surface-hover); }
 
         .file-item .name {
             flex: 1;
@@ -182,80 +315,6 @@
 
         .file-item .btn-download:hover { background: var(--accent-hover); }
 
-        /* Process Button */
-        .actions {
-            margin-top: 1.5rem;
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-        }
-
-        .btn {
-            padding: 0.7rem 2rem;
-            border: none;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s, opacity 0.2s;
-        }
-
-        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-        .btn-primary {
-            background: var(--accent);
-            color: #fff;
-        }
-
-        .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
-
-        .btn-secondary {
-            background: var(--surface);
-            color: var(--text);
-            border: 1px solid var(--border);
-        }
-
-        .btn-secondary:hover:not(:disabled) { background: var(--surface-hover); }
-
-        /* Preview */
-        .preview-section {
-            margin-top: 2rem;
-            display: none;
-        }
-
-        .preview-section.visible { display: block; }
-
-        .preview-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        @media (max-width: 600px) {
-            .preview-grid { grid-template-columns: 1fr; }
-        }
-
-        .preview-card {
-            background: var(--surface);
-            border-radius: var(--radius);
-            overflow: hidden;
-            border: 1px solid var(--border);
-        }
-
-        .preview-card h3 {
-            padding: 0.6rem 1rem;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .preview-card img {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-
         /* Progress */
         .progress-bar {
             width: 100%;
@@ -277,49 +336,7 @@
             width: 0%;
         }
 
-        .color-section {
-            margin-top: 1.5rem;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1rem 1.2rem;
-        }
-
-        .color-section summary {
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--text-muted);
-        }
-
-        .color-section summary:hover { color: var(--text); }
-
-        .range-labels {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            margin-top: 0.15rem;
-        }
-
         /* Presets */
-        .presets-section {
-            margin-top: 1.5rem;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1rem 1.2rem;
-        }
-
-        .presets-section summary {
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--text-muted);
-        }
-
-        .presets-section summary:hover { color: var(--text); }
-
         .preset-save-row {
             display: flex;
             gap: 0.5rem;
@@ -391,6 +408,24 @@
             padding: 0.8rem;
         }
 
+        /* Toast */
+        #toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent);
+            color: #fff;
+            padding: 0.6rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 999;
+        }
+
         footer {
             margin-top: 3rem;
             text-align: center;
@@ -406,14 +441,14 @@
     <div class="container">
         <header>
             <h1><span>Negativ</span> – Film Negative Inverter</h1>
-            <p>Orange-Mask-Korrektur per kanalgetrennter Histogrammnormalisierung</p>
+            <p>Orange-Mask-Korrektur mit Echtzeit-Vorschau</p>
         </header>
 
         <div class="dropzone" id="dropzone">
             <div class="dropzone-icon">&#x1F4F7;</div>
             <div class="dropzone-text">
                 <strong>Negativ-Scans hierhin ziehen</strong><br>
-                oder klicken zum Auswählen
+                oder klicken zum Ausw&auml;hlen
             </div>
             <div class="dropzone-formats">
                 TIFF &middot; PNG &middot; JPEG{% if heic_supported %} &middot; HEIC{% endif %} &middot; max 100 MB
@@ -422,6 +457,22 @@
                    accept=".tif,.tiff,.png,.jpg,.jpeg{% if heic_supported %},.heic,.heif{% endif %}">
         </div>
 
+        <!-- Preview: sofort sichtbar nach Upload -->
+        <div class="preview-section" id="preview-section">
+            <div class="preview-grid">
+                <div class="preview-card">
+                    <h3>Original (Negativ)</h3>
+                    <img id="preview-original" alt="Original">
+                </div>
+                <div class="preview-card">
+                    <h3>Ergebnis (Positiv)</h3>
+                    <img id="preview-result" alt="Ergebnis">
+                    <div class="preview-spinner" id="preview-spinner">Verarbeite...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Basis-Controls -->
         <div class="controls">
             <div class="control-group">
                 <label>Clipping <span class="control-value" id="clip-value">0.1%</span></label>
@@ -441,7 +492,8 @@
             </div>
         </div>
 
-        <details class="color-section" open>
+        <!-- Tonwertkorrektur -->
+        <details class="section" open>
             <summary>Tonwertkorrektur</summary>
             <div class="controls" style="margin-top: 1rem;">
                 <div class="control-group">
@@ -450,7 +502,7 @@
                     <div class="range-labels"><span>0</span><span>30%</span></div>
                 </div>
                 <div class="control-group">
-                    <label>Weißpunkt <span class="control-value" id="wp-value">100%</span></label>
+                    <label>Wei&szlig;punkt <span class="control-value" id="wp-value">100%</span></label>
                     <input type="range" id="white_point" min="70" max="100" step="0.5" value="100">
                     <div class="range-labels"><span>70%</span><span>100</span></div>
                 </div>
@@ -481,7 +533,8 @@
             </div>
         </details>
 
-        <details class="color-section">
+        <!-- Chromatische Korrektur -->
+        <details class="section">
             <summary>Chromatische Korrektur</summary>
             <div class="controls" style="margin-top: 1rem;">
                 <div class="control-group">
@@ -490,9 +543,9 @@
                     <div class="range-labels"><span>kalt</span><span>warm</span></div>
                 </div>
                 <div class="control-group">
-                    <label>Tönung <span class="control-value" id="tint-value">0</span></label>
+                    <label>T&ouml;nung <span class="control-value" id="tint-value">0</span></label>
                     <input type="range" id="tint" min="-100" max="100" step="1" value="0">
-                    <div class="range-labels"><span>grün</span><span>magenta</span></div>
+                    <div class="range-labels"><span>gr&uuml;n</span><span>magenta</span></div>
                 </div>
             </div>
             <div class="controls" style="margin-top: 0.5rem;">
@@ -501,7 +554,7 @@
                     <input type="range" id="gamma_r" min="0.5" max="2.0" step="0.05" value="1.0">
                 </div>
                 <div class="control-group">
-                    <label style="color: #6b6">Grün-Gamma <span class="control-value" id="gamma-g-value">1.0</span></label>
+                    <label style="color: #6b6">Gr&uuml;n-Gamma <span class="control-value" id="gamma-g-value">1.0</span></label>
                     <input type="range" id="gamma_g" min="0.5" max="2.0" step="0.05" value="1.0">
                 </div>
                 <div class="control-group">
@@ -511,7 +564,8 @@
             </div>
         </details>
 
-        <details class="presets-section">
+        <!-- Presets -->
+        <details class="section">
             <summary>Gespeicherte Presets</summary>
             <div class="preset-save-row">
                 <input type="text" id="preset-name" placeholder="z.B. Kodak Portra 160 – Tageslicht">
@@ -520,129 +574,105 @@
             <div class="preset-list" id="preset-list"></div>
         </details>
 
+        <!-- Dateiliste -->
         <div class="file-list" id="file-list"></div>
 
         <div class="progress-bar" id="progress-bar">
             <div class="progress-fill" id="progress-fill"></div>
         </div>
 
+        <!-- Aktions-Buttons -->
         <div class="actions">
-            <button class="btn btn-primary" id="btn-process" disabled>Invertieren</button>
-            <button class="btn btn-secondary" id="btn-clear" disabled>Zurücksetzen</button>
-            <button class="btn btn-secondary" id="btn-copy-params" title="Alle Parameter in die Zwischenablage kopieren">&#x1F4CB; Parameter kopieren</button>
-            <button class="btn btn-secondary" id="btn-paste-params" title="Parameter aus der Zwischenablage einfügen">&#x1F4C4; Parameter einfügen</button>
+            <button class="btn btn-auto" id="btn-auto" disabled title="Automatische Korrektur per Histogramm-Analyse">Auto-Korrektur</button>
+            <button class="btn btn-primary" id="btn-process" disabled>Download (Vollaufl&ouml;sung)</button>
+            <button class="btn btn-secondary" id="btn-clear" disabled>Zur&uuml;cksetzen</button>
+            <button class="btn btn-secondary" id="btn-copy-params" title="Parameter kopieren">&#x1F4CB; Kopieren</button>
+            <button class="btn btn-secondary" id="btn-paste-params" title="Parameter einf&uuml;gen">&#x1F4C4; Einf&uuml;gen</button>
         </div>
 
-        <div id="copy-toast" style="
-            position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
-            background: var(--accent); color: #fff; padding: 0.6rem 1.5rem;
-            border-radius: 8px; font-size: 0.9rem; font-weight: 600;
-            opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999;
-        "></div>
-
-        <div class="preview-section" id="preview-section">
-            <div class="preview-grid">
-                <div class="preview-card">
-                    <h3>Original (Negativ)</h3>
-                    <img id="preview-original" alt="Original">
-                </div>
-                <div class="preview-card">
-                    <h3>Ergebnis (Positiv)</h3>
-                    <img id="preview-result" alt="Ergebnis">
-                </div>
-            </div>
-        </div>
+        <div id="toast"></div>
 
         <footer>
             <a href="https://github.com/OrvilleWilbur/Negativ" target="_blank">GitHub</a>
-            &middot; MIT License
+            &middot; Bilder werden nicht gespeichert &middot; MIT License
         </footer>
     </div>
 
     <script>
+        // --- DOM Elements ---
         const dropzone = document.getElementById('dropzone');
         const fileInput = document.getElementById('file-input');
         const fileList = document.getElementById('file-list');
         const btnProcess = document.getElementById('btn-process');
         const btnClear = document.getElementById('btn-clear');
+        const btnAuto = document.getElementById('btn-auto');
         const progressBar = document.getElementById('progress-bar');
         const progressFill = document.getElementById('progress-fill');
         const previewSection = document.getElementById('preview-section');
         const previewOriginal = document.getElementById('preview-original');
         const previewResult = document.getElementById('preview-result');
-        const clipSlider = document.getElementById('clip');
-        const gammaSlider = document.getElementById('gamma');
-        const clipValue = document.getElementById('clip-value');
-        const gammaValue = document.getElementById('gamma-value');
+        const previewSpinner = document.getElementById('preview-spinner');
+        const toastEl = document.getElementById('toast');
+
+        // Slider elements
+        const sliders = {
+            clip:        { el: document.getElementById('clip'),        val: document.getElementById('clip-value'),      fmt: v => v + '%' },
+            gamma:       { el: document.getElementById('gamma'),       val: document.getElementById('gamma-value'),     fmt: v => v },
+            temperature: { el: document.getElementById('temperature'), val: document.getElementById('temp-value'),      fmt: v => v },
+            tint:        { el: document.getElementById('tint'),        val: document.getElementById('tint-value'),      fmt: v => v },
+            gamma_r:     { el: document.getElementById('gamma_r'),     val: document.getElementById('gamma-r-value'),   fmt: v => v },
+            gamma_g:     { el: document.getElementById('gamma_g'),     val: document.getElementById('gamma-g-value'),   fmt: v => v },
+            gamma_b:     { el: document.getElementById('gamma_b'),     val: document.getElementById('gamma-b-value'),   fmt: v => v },
+            black_point: { el: document.getElementById('black_point'), val: document.getElementById('bp-value'),        fmt: v => v + '%' },
+            white_point: { el: document.getElementById('white_point'), val: document.getElementById('wp-value'),        fmt: v => v + '%' },
+            brightness:  { el: document.getElementById('brightness'),  val: document.getElementById('bright-value'),    fmt: v => v },
+            contrast:    { el: document.getElementById('contrast'),    val: document.getElementById('contrast-value'),  fmt: v => v },
+            shadows:     { el: document.getElementById('shadows'),     val: document.getElementById('shadows-value'),   fmt: v => v },
+            highlights:  { el: document.getElementById('highlights'),  val: document.getElementById('highlights-value'),fmt: v => v },
+        };
+
         const formatSelect = document.getElementById('format');
-        const tempSlider = document.getElementById('temperature');
-        const tintSlider = document.getElementById('tint');
-        const tempValue = document.getElementById('temp-value');
-        const tintValue = document.getElementById('tint-value');
-        const gammaRSlider = document.getElementById('gamma_r');
-        const gammaGSlider = document.getElementById('gamma_g');
-        const gammaBSlider = document.getElementById('gamma_b');
-        const gammaRValue = document.getElementById('gamma-r-value');
-        const gammaGValue = document.getElementById('gamma-g-value');
-        const gammaBValue = document.getElementById('gamma-b-value');
-        const bpSlider = document.getElementById('black_point');
-        const wpSlider = document.getElementById('white_point');
-        const bpValue = document.getElementById('bp-value');
-        const wpValue = document.getElementById('wp-value');
-        const brightSlider = document.getElementById('brightness');
-        const contrastSlider = document.getElementById('contrast');
-        const brightValue = document.getElementById('bright-value');
-        const contrastValue = document.getElementById('contrast-value');
-        const shadowsSlider = document.getElementById('shadows');
-        const highlightsSlider = document.getElementById('highlights');
-        const shadowsValue = document.getElementById('shadows-value');
-        const highlightsValue = document.getElementById('highlights-value');
 
-        let files = [];
-        let results = new Map(); // filename -> blob URL
+        // --- State ---
+        let uploadedFiles = [];    // {file, session_id, filename, original_preview, resultUrl}
+        let activeIndex = -1;      // aktuell angezeigtes Bild
+        let previewAbort = null;   // AbortController für laufende Vorschau
+        let previewTimer = null;   // Debounce-Timer
 
-        // Slider labels
-        clipSlider.addEventListener('input', () => {
-            clipValue.textContent = clipSlider.value + '%';
-        });
-        gammaSlider.addEventListener('input', () => {
-            gammaValue.textContent = gammaSlider.value;
-        });
-        tempSlider.addEventListener('input', () => {
-            tempValue.textContent = tempSlider.value;
-        });
-        tintSlider.addEventListener('input', () => {
-            tintValue.textContent = tintSlider.value;
-        });
-        gammaRSlider.addEventListener('input', () => {
-            gammaRValue.textContent = gammaRSlider.value;
-        });
-        gammaGSlider.addEventListener('input', () => {
-            gammaGValue.textContent = gammaGSlider.value;
-        });
-        gammaBSlider.addEventListener('input', () => {
-            gammaBValue.textContent = gammaBSlider.value;
-        });
-        bpSlider.addEventListener('input', () => {
-            bpValue.textContent = bpSlider.value + '%';
-        });
-        wpSlider.addEventListener('input', () => {
-            wpValue.textContent = wpSlider.value + '%';
-        });
-        brightSlider.addEventListener('input', () => {
-            brightValue.textContent = brightSlider.value;
-        });
-        contrastSlider.addEventListener('input', () => {
-            contrastValue.textContent = contrastSlider.value;
-        });
-        shadowsSlider.addEventListener('input', () => {
-            shadowsValue.textContent = shadowsSlider.value;
-        });
-        highlightsSlider.addEventListener('input', () => {
-            highlightsValue.textContent = highlightsSlider.value;
+        // --- Toast ---
+        function showToast(msg) {
+            toastEl.textContent = msg;
+            toastEl.style.opacity = '1';
+            setTimeout(() => { toastEl.style.opacity = '0'; }, 2000);
+        }
+
+        // --- Slider Events: Label aktualisieren + Echtzeit-Vorschau ---
+        Object.entries(sliders).forEach(([key, s]) => {
+            s.el.addEventListener('input', () => {
+                s.val.textContent = s.fmt(s.el.value);
+                requestPreview();
+            });
         });
 
-        // Drag & Drop
+        // --- Parameter Helpers ---
+        function getParams() {
+            const p = {};
+            Object.entries(sliders).forEach(([key, s]) => { p[key] = s.el.value; });
+            p.format = formatSelect.value;
+            return p;
+        }
+
+        function applyParams(p) {
+            Object.entries(sliders).forEach(([key, s]) => {
+                if (p[key] !== undefined) {
+                    s.el.value = p[key];
+                    s.val.textContent = s.fmt(p[key]);
+                }
+            });
+            if (p.format !== undefined) formatSelect.value = p.format;
+        }
+
+        // --- Drag & Drop ---
         dropzone.addEventListener('click', () => fileInput.click());
         dropzone.addEventListener('dragover', e => {
             e.preventDefault();
@@ -654,24 +684,131 @@
         dropzone.addEventListener('drop', e => {
             e.preventDefault();
             dropzone.classList.remove('dragover');
-            addFiles(e.dataTransfer.files);
+            handleNewFiles(e.dataTransfer.files);
         });
         fileInput.addEventListener('change', () => {
-            addFiles(fileInput.files);
+            handleNewFiles(fileInput.files);
             fileInput.value = '';
         });
 
-        function addFiles(newFiles) {
-            for (const f of newFiles) {
-                if (!files.some(existing => existing.name === f.name && existing.size === f.size)) {
-                    files.push(f);
+        // --- Upload: Bild hochladen und cachen ---
+        async function handleNewFiles(newFiles) {
+            for (const file of newFiles) {
+                if (uploadedFiles.some(u => u.file.name === file.name && u.file.size === file.size)) continue;
+
+                const entry = { file, session_id: null, filename: file.name, original_preview: null, resultUrl: null };
+                uploadedFiles.push(entry);
+
+                // Upload im Hintergrund
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const resp = await fetch('/api/upload', { method: 'POST', body: formData });
+                    if (!resp.ok) throw new Error('Upload fehlgeschlagen');
+                    const data = await resp.json();
+                    entry.session_id = data.session_id;
+                    entry.filename = data.filename;
+                    entry.original_preview = data.original_preview;
+
+                    // Erstes Bild automatisch auswählen
+                    if (uploadedFiles.length === 1) {
+                        selectFile(0);
+                    }
+                } catch (err) {
+                    showToast('Upload-Fehler: ' + err.message);
                 }
+
+                renderFileList();
             }
-            renderFileList();
-            btnProcess.disabled = files.length === 0;
-            btnClear.disabled = files.length === 0;
+
+            btnProcess.disabled = uploadedFiles.length === 0;
+            btnClear.disabled = uploadedFiles.length === 0;
+            btnAuto.disabled = uploadedFiles.length === 0;
         }
 
+        // --- Datei auswählen und Vorschau laden ---
+        function selectFile(index) {
+            activeIndex = index;
+            const entry = uploadedFiles[index];
+            if (!entry) return;
+
+            if (entry.original_preview) {
+                previewOriginal.src = entry.original_preview;
+            } else {
+                previewOriginal.src = URL.createObjectURL(entry.file);
+            }
+
+            previewSection.classList.add('visible');
+            renderFileList();
+            requestPreview();
+        }
+
+        // --- Echtzeit-Vorschau (debounced) ---
+        function requestPreview() {
+            if (activeIndex < 0) return;
+            const entry = uploadedFiles[activeIndex];
+            if (!entry || !entry.session_id) return;
+
+            // Vorherigen Request abbrechen
+            if (previewAbort) previewAbort.abort();
+            clearTimeout(previewTimer);
+
+            previewTimer = setTimeout(() => {
+                previewAbort = new AbortController();
+                previewSpinner.classList.add('visible');
+
+                const formData = new FormData();
+                formData.append('session_id', entry.session_id);
+                Object.entries(sliders).forEach(([key, s]) => {
+                    formData.append(key, s.el.value);
+                });
+
+                fetch('/api/preview', { method: 'POST', body: formData, signal: previewAbort.signal })
+                    .then(resp => {
+                        if (!resp.ok) throw new Error('Preview fehlgeschlagen');
+                        return resp.blob();
+                    })
+                    .then(blob => {
+                        previewResult.src = URL.createObjectURL(blob);
+                        previewSpinner.classList.remove('visible');
+                    })
+                    .catch(err => {
+                        if (err.name !== 'AbortError') {
+                            previewSpinner.classList.remove('visible');
+                        }
+                    });
+            }, 250); // 250ms Debounce
+        }
+
+        // --- Auto-Korrektur ---
+        btnAuto.addEventListener('click', async () => {
+            if (activeIndex < 0) return;
+            const entry = uploadedFiles[activeIndex];
+            if (!entry || !entry.session_id) return;
+
+            btnAuto.disabled = true;
+            btnAuto.textContent = 'Analysiere...';
+
+            const formData = new FormData();
+            formData.append('session_id', entry.session_id);
+
+            try {
+                const resp = await fetch('/api/analyze', { method: 'POST', body: formData });
+                if (!resp.ok) throw new Error('Analyse fehlgeschlagen');
+                const params = await resp.json();
+                applyParams(params);
+                showToast('Auto-Korrektur angewendet');
+                requestPreview();
+            } catch (err) {
+                showToast('Fehler: ' + err.message);
+            }
+
+            btnAuto.disabled = false;
+            btnAuto.textContent = 'Auto-Korrektur';
+        });
+
+        // --- Dateiliste rendern ---
         function formatSize(bytes) {
             if (bytes < 1024) return bytes + ' B';
             if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -680,96 +817,61 @@
 
         function renderFileList() {
             fileList.innerHTML = '';
-            files.forEach((f, i) => {
+            uploadedFiles.forEach((entry, i) => {
                 const div = document.createElement('div');
-                div.className = 'file-item';
-                div.dataset.index = i;
+                div.className = 'file-item' + (i === activeIndex ? ' active' : '');
 
-                const resultUrl = results.get(f.name);
-                const statusEl = resultUrl
-                    ? `<a class="btn-download" href="${resultUrl}" download="${f.name.replace(/\.[^.]+$/, '')}_positive.${formatSelect.value === 'jpeg' ? 'jpg' : formatSelect.value === 'tiff' ? 'tif' : 'png'}">Download</a>`
-                    : `<span class="status status-pending" data-status="${i}">Bereit</span>`;
+                const statusHtml = entry.resultUrl
+                    ? `<a class="btn-download" href="${entry.resultUrl}" download="${entry.filename.replace(/\.[^.]+$/, '')}_positive.${formatSelect.value === 'jpeg' ? 'jpg' : formatSelect.value === 'tiff' ? 'tif' : 'png'}">Download</a>`
+                    : entry.session_id
+                        ? `<span class="status status-done">Bereit</span>`
+                        : `<span class="status status-processing">Lade hoch...</span>`;
 
                 div.innerHTML = `
-                    <span class="name">${f.name}</span>
-                    <span class="size">${formatSize(f.size)}</span>
-                    ${statusEl}
+                    <span class="name">${entry.filename}</span>
+                    <span class="size">${formatSize(entry.file.size)}</span>
+                    ${statusHtml}
                 `;
 
-                // Click to show preview of original
                 div.addEventListener('click', (e) => {
                     if (e.target.closest('.btn-download')) return;
-                    showOriginalPreview(f);
+                    selectFile(i);
                 });
 
                 fileList.appendChild(div);
             });
         }
 
-        function showOriginalPreview(file) {
-            const url = URL.createObjectURL(file);
-            previewOriginal.src = url;
-            previewResult.src = '';
-            previewSection.classList.add('visible');
-        }
-
-        // Process all files
+        // --- Vollauflösung verarbeiten + Download ---
         btnProcess.addEventListener('click', async () => {
-            if (files.length === 0) return;
+            if (uploadedFiles.length === 0) return;
 
             btnProcess.disabled = true;
+            btnProcess.textContent = 'Verarbeite...';
             progressBar.classList.add('visible');
-            results.clear();
 
-            for (let i = 0; i < files.length; i++) {
-                const f = files[i];
-                const statusEl = document.querySelector(`[data-status="${i}"]`);
-                if (statusEl) {
-                    statusEl.textContent = 'Verarbeite...';
-                    statusEl.className = 'status status-processing';
-                }
-
-                progressFill.style.width = ((i / files.length) * 100) + '%';
+            for (let i = 0; i < uploadedFiles.length; i++) {
+                const entry = uploadedFiles[i];
+                progressFill.style.width = ((i / uploadedFiles.length) * 100) + '%';
 
                 const formData = new FormData();
-                formData.append('file', f);
-                formData.append('clip', clipSlider.value);
-                formData.append('gamma', gammaSlider.value);
-                formData.append('temperature', tempSlider.value);
-                formData.append('tint', tintSlider.value);
-                formData.append('gamma_r', gammaRSlider.value);
-                formData.append('gamma_g', gammaGSlider.value);
-                formData.append('gamma_b', gammaBSlider.value);
-                formData.append('black_point', bpSlider.value);
-                formData.append('white_point', wpSlider.value);
-                formData.append('brightness', brightSlider.value);
-                formData.append('contrast', contrastSlider.value);
-                formData.append('shadows', shadowsSlider.value);
-                formData.append('highlights', highlightsSlider.value);
+                if (entry.session_id) {
+                    formData.append('session_id', entry.session_id);
+                } else {
+                    formData.append('file', entry.file);
+                }
+                Object.entries(sliders).forEach(([key, s]) => {
+                    formData.append(key, s.el.value);
+                });
                 formData.append('format', formatSelect.value);
 
                 try {
                     const resp = await fetch('/api/process', { method: 'POST', body: formData });
-                    if (!resp.ok) {
-                        const err = await resp.json();
-                        throw new Error(err.error || 'Verarbeitung fehlgeschlagen');
-                    }
+                    if (!resp.ok) throw new Error('Verarbeitung fehlgeschlagen');
                     const blob = await resp.blob();
-                    const url = URL.createObjectURL(blob);
-                    results.set(f.name, url);
-
-                    // Show preview for last processed image
-                    if (i === files.length - 1 || files.length === 1) {
-                        previewOriginal.src = URL.createObjectURL(f);
-                        previewResult.src = url;
-                        previewSection.classList.add('visible');
-                    }
+                    entry.resultUrl = URL.createObjectURL(blob);
                 } catch (err) {
-                    if (statusEl) {
-                        statusEl.textContent = err.message;
-                        statusEl.className = 'status status-error';
-                    }
-                    continue;
+                    showToast(entry.filename + ': ' + err.message);
                 }
 
                 renderFileList();
@@ -782,94 +884,56 @@
             }, 800);
 
             btnProcess.disabled = false;
+            btnProcess.textContent = 'Download (Vollauflösung)';
         });
 
-        // Copy / Paste Parameters
-        const btnCopyParams = document.getElementById('btn-copy-params');
-        const btnPasteParams = document.getElementById('btn-paste-params');
-        const copyToast = document.getElementById('copy-toast');
+        // --- Clear ---
+        btnClear.addEventListener('click', () => {
+            uploadedFiles.forEach(e => { if (e.resultUrl) URL.revokeObjectURL(e.resultUrl); });
+            uploadedFiles = [];
+            activeIndex = -1;
+            renderFileList();
+            btnProcess.disabled = true;
+            btnClear.disabled = true;
+            btnAuto.disabled = true;
+            previewSection.classList.remove('visible');
+        });
 
-        function showToast(msg) {
-            copyToast.textContent = msg;
-            copyToast.style.opacity = '1';
-            setTimeout(() => { copyToast.style.opacity = '0'; }, 2000);
-        }
-
-        function getParams() {
-            return {
-                clip: clipSlider.value,
-                gamma: gammaSlider.value,
-                temperature: tempSlider.value,
-                tint: tintSlider.value,
-                gamma_r: gammaRSlider.value,
-                gamma_g: gammaGSlider.value,
-                gamma_b: gammaBSlider.value,
-                black_point: bpSlider.value,
-                white_point: wpSlider.value,
-                brightness: brightSlider.value,
-                contrast: contrastSlider.value,
-                shadows: shadowsSlider.value,
-                highlights: highlightsSlider.value,
-                format: formatSelect.value
-            };
-        }
-
-        function applyParams(p) {
-            if (p.clip !== undefined)        { clipSlider.value = p.clip;         clipValue.textContent = p.clip + '%'; }
-            if (p.gamma !== undefined)       { gammaSlider.value = p.gamma;       gammaValue.textContent = p.gamma; }
-            if (p.temperature !== undefined) { tempSlider.value = p.temperature;  tempValue.textContent = p.temperature; }
-            if (p.tint !== undefined)        { tintSlider.value = p.tint;         tintValue.textContent = p.tint; }
-            if (p.gamma_r !== undefined)     { gammaRSlider.value = p.gamma_r;    gammaRValue.textContent = p.gamma_r; }
-            if (p.gamma_g !== undefined)     { gammaGSlider.value = p.gamma_g;    gammaGValue.textContent = p.gamma_g; }
-            if (p.gamma_b !== undefined)     { gammaBSlider.value = p.gamma_b;    gammaBValue.textContent = p.gamma_b; }
-            if (p.black_point !== undefined) { bpSlider.value = p.black_point;    bpValue.textContent = p.black_point + '%'; }
-            if (p.white_point !== undefined) { wpSlider.value = p.white_point;    wpValue.textContent = p.white_point + '%'; }
-            if (p.brightness !== undefined)  { brightSlider.value = p.brightness; brightValue.textContent = p.brightness; }
-            if (p.contrast !== undefined)    { contrastSlider.value = p.contrast;  contrastValue.textContent = p.contrast; }
-            if (p.shadows !== undefined)     { shadowsSlider.value = p.shadows;    shadowsValue.textContent = p.shadows; }
-            if (p.highlights !== undefined)  { highlightsSlider.value = p.highlights; highlightsValue.textContent = p.highlights; }
-            if (p.format !== undefined)      { formatSelect.value = p.format; }
-        }
-
-        btnCopyParams.addEventListener('click', async () => {
-            const params = getParams();
-            const text = JSON.stringify(params, null, 2);
+        // --- Copy / Paste ---
+        document.getElementById('btn-copy-params').addEventListener('click', async () => {
+            const text = JSON.stringify(getParams(), null, 2);
             try {
                 await navigator.clipboard.writeText(text);
                 showToast('Parameter kopiert!');
-            } catch {
-                // Fallback: show in prompt
-                prompt('Parameter (manuell kopieren):', text);
-            }
+            } catch { prompt('Parameter (manuell kopieren):', text); }
         });
 
-        btnPasteParams.addEventListener('click', async () => {
+        document.getElementById('btn-paste-params').addEventListener('click', async () => {
             try {
                 const text = await navigator.clipboard.readText();
-                const params = JSON.parse(text);
-                applyParams(params);
+                applyParams(JSON.parse(text));
                 showToast('Parameter eingefügt!');
+                requestPreview();
             } catch {
                 const text = prompt('Parameter-JSON einfügen:');
                 if (text) {
                     try {
                         applyParams(JSON.parse(text));
                         showToast('Parameter eingefügt!');
+                        requestPreview();
                     } catch { showToast('Ungültiges Format'); }
                 }
             }
         });
 
-        // Presets (localStorage)
+        // --- Presets (localStorage) ---
         const PRESETS_KEY = 'negativ_presets';
         const presetNameInput = document.getElementById('preset-name');
-        const btnSavePreset = document.getElementById('btn-save-preset');
         const presetListEl = document.getElementById('preset-list');
 
         function loadPresets() {
-            try {
-                return JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]');
-            } catch { return []; }
+            try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]'); }
+            catch { return []; }
         }
 
         function savePresets(presets) {
@@ -884,30 +948,29 @@
             }
             presetListEl.innerHTML = '';
             presets.forEach((preset, idx) => {
+                const p = preset.params;
+                const info = `Clip ${p.clip}% | \u0393 ${p.gamma} | BP ${p.black_point}% WP ${p.white_point}% | Kontr ${p.contrast} | R${p.gamma_r} G${p.gamma_g} B${p.gamma_b}`;
+
                 const div = document.createElement('div');
                 div.className = 'preset-item';
-
-                const info = `Clip ${preset.params.clip}% | Gamma ${preset.params.gamma} | T ${preset.params.temperature} | R ${preset.params.gamma_r} G ${preset.params.gamma_g} B ${preset.params.gamma_b}`;
-
                 div.innerHTML = `
                     <span class="preset-name">${preset.name}</span>
                     <span class="preset-info">${info}</span>
-                    <button class="preset-delete" data-idx="${idx}" title="Preset löschen">&times;</button>
+                    <button class="preset-delete" data-idx="${idx}" title="Preset l\u00f6schen">&times;</button>
                 `;
 
-                // Click to load preset
                 div.addEventListener('click', (e) => {
                     if (e.target.closest('.preset-delete')) return;
                     applyParams(preset.params);
                     showToast('Preset "' + preset.name + '" geladen');
+                    requestPreview();
                 });
 
-                // Delete button
                 div.querySelector('.preset-delete').addEventListener('click', (e) => {
                     e.stopPropagation();
-                    const presets = loadPresets();
-                    presets.splice(idx, 1);
-                    savePresets(presets);
+                    const all = loadPresets();
+                    all.splice(idx, 1);
+                    savePresets(all);
                     renderPresets();
                     showToast('Preset gelöscht');
                 });
@@ -916,7 +979,7 @@
             });
         }
 
-        btnSavePreset.addEventListener('click', () => {
+        document.getElementById('btn-save-preset').addEventListener('click', () => {
             const name = presetNameInput.value.trim();
             if (!name) {
                 presetNameInput.focus();
@@ -925,35 +988,18 @@
                 return;
             }
             const presets = loadPresets();
-            presets.push({
-                name: name,
-                params: getParams(),
-                created: new Date().toISOString()
-            });
+            presets.push({ name, params: getParams(), created: new Date().toISOString() });
             savePresets(presets);
             presetNameInput.value = '';
             renderPresets();
             showToast('Preset "' + name + '" gespeichert');
         });
 
-        // Enter key to save
         presetNameInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') btnSavePreset.click();
+            if (e.key === 'Enter') document.getElementById('btn-save-preset').click();
         });
 
-        // Initial render
         renderPresets();
-
-        // Clear
-        btnClear.addEventListener('click', () => {
-            files = [];
-            results.forEach(url => URL.revokeObjectURL(url));
-            results.clear();
-            renderFileList();
-            btnProcess.disabled = true;
-            btnClear.disabled = true;
-            previewSection.classList.remove('visible');
-        });
     </script>
 </body>
 </html>

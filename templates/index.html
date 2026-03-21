@@ -302,6 +302,95 @@
             margin-top: 0.15rem;
         }
 
+        /* Presets */
+        .presets-section {
+            margin-top: 1.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem 1.2rem;
+        }
+
+        .presets-section summary {
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .presets-section summary:hover { color: var(--text); }
+
+        .preset-save-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .preset-save-row input[type="text"] {
+            flex: 1;
+            padding: 0.5rem 0.8rem;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .preset-save-row input[type="text"]::placeholder {
+            color: var(--text-muted);
+        }
+
+        .preset-list {
+            margin-top: 0.8rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .preset-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.8rem;
+            background: var(--bg);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .preset-item:hover { border-color: var(--accent); }
+
+        .preset-item .preset-name {
+            flex: 1;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .preset-item .preset-info {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .preset-item .preset-delete {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0.2rem;
+            line-height: 1;
+        }
+
+        .preset-item .preset-delete:hover { color: #c44; }
+
+        .preset-empty {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 0.8rem;
+        }
+
         footer {
             margin-top: 3rem;
             text-align: center;
@@ -382,6 +471,15 @@
             </div>
         </details>
 
+        <details class="presets-section">
+            <summary>Gespeicherte Presets</summary>
+            <div class="preset-save-row">
+                <input type="text" id="preset-name" placeholder="z.B. Kodak Portra 160 – Tageslicht">
+                <button class="btn btn-primary" id="btn-save-preset" style="padding: 0.5rem 1.2rem; font-size: 0.85rem;">Speichern</button>
+            </div>
+            <div class="preset-list" id="preset-list"></div>
+        </details>
+
         <div class="file-list" id="file-list"></div>
 
         <div class="progress-bar" id="progress-bar">
@@ -391,7 +489,16 @@
         <div class="actions">
             <button class="btn btn-primary" id="btn-process" disabled>Invertieren</button>
             <button class="btn btn-secondary" id="btn-clear" disabled>Zurücksetzen</button>
+            <button class="btn btn-secondary" id="btn-copy-params" title="Alle Parameter in die Zwischenablage kopieren">&#x1F4CB; Parameter kopieren</button>
+            <button class="btn btn-secondary" id="btn-paste-params" title="Parameter aus der Zwischenablage einfügen">&#x1F4C4; Parameter einfügen</button>
         </div>
+
+        <div id="copy-toast" style="
+            position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+            background: var(--accent); color: #fff; padding: 0.6rem 1.5rem;
+            border-radius: 8px; font-size: 0.9rem; font-weight: 600;
+            opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999;
+        "></div>
 
         <div class="preview-section" id="preview-section">
             <div class="preview-grid">
@@ -600,6 +707,154 @@
 
             btnProcess.disabled = false;
         });
+
+        // Copy / Paste Parameters
+        const btnCopyParams = document.getElementById('btn-copy-params');
+        const btnPasteParams = document.getElementById('btn-paste-params');
+        const copyToast = document.getElementById('copy-toast');
+
+        function showToast(msg) {
+            copyToast.textContent = msg;
+            copyToast.style.opacity = '1';
+            setTimeout(() => { copyToast.style.opacity = '0'; }, 2000);
+        }
+
+        function getParams() {
+            return {
+                clip: clipSlider.value,
+                gamma: gammaSlider.value,
+                temperature: tempSlider.value,
+                tint: tintSlider.value,
+                gamma_r: gammaRSlider.value,
+                gamma_g: gammaGSlider.value,
+                gamma_b: gammaBSlider.value,
+                format: formatSelect.value
+            };
+        }
+
+        function applyParams(p) {
+            if (p.clip !== undefined)        { clipSlider.value = p.clip;         clipValue.textContent = p.clip + '%'; }
+            if (p.gamma !== undefined)       { gammaSlider.value = p.gamma;       gammaValue.textContent = p.gamma; }
+            if (p.temperature !== undefined) { tempSlider.value = p.temperature;  tempValue.textContent = p.temperature; }
+            if (p.tint !== undefined)        { tintSlider.value = p.tint;         tintValue.textContent = p.tint; }
+            if (p.gamma_r !== undefined)     { gammaRSlider.value = p.gamma_r;    gammaRValue.textContent = p.gamma_r; }
+            if (p.gamma_g !== undefined)     { gammaGSlider.value = p.gamma_g;    gammaGValue.textContent = p.gamma_g; }
+            if (p.gamma_b !== undefined)     { gammaBSlider.value = p.gamma_b;    gammaBValue.textContent = p.gamma_b; }
+            if (p.format !== undefined)      { formatSelect.value = p.format; }
+        }
+
+        btnCopyParams.addEventListener('click', async () => {
+            const params = getParams();
+            const text = JSON.stringify(params, null, 2);
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast('Parameter kopiert!');
+            } catch {
+                // Fallback: show in prompt
+                prompt('Parameter (manuell kopieren):', text);
+            }
+        });
+
+        btnPasteParams.addEventListener('click', async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                const params = JSON.parse(text);
+                applyParams(params);
+                showToast('Parameter eingefügt!');
+            } catch {
+                const text = prompt('Parameter-JSON einfügen:');
+                if (text) {
+                    try {
+                        applyParams(JSON.parse(text));
+                        showToast('Parameter eingefügt!');
+                    } catch { showToast('Ungültiges Format'); }
+                }
+            }
+        });
+
+        // Presets (localStorage)
+        const PRESETS_KEY = 'negativ_presets';
+        const presetNameInput = document.getElementById('preset-name');
+        const btnSavePreset = document.getElementById('btn-save-preset');
+        const presetListEl = document.getElementById('preset-list');
+
+        function loadPresets() {
+            try {
+                return JSON.parse(localStorage.getItem(PRESETS_KEY) || '[]');
+            } catch { return []; }
+        }
+
+        function savePresets(presets) {
+            localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
+        }
+
+        function renderPresets() {
+            const presets = loadPresets();
+            if (presets.length === 0) {
+                presetListEl.innerHTML = '<div class="preset-empty">Noch keine Presets gespeichert</div>';
+                return;
+            }
+            presetListEl.innerHTML = '';
+            presets.forEach((preset, idx) => {
+                const div = document.createElement('div');
+                div.className = 'preset-item';
+
+                const info = `Clip ${preset.params.clip}% | Gamma ${preset.params.gamma} | T ${preset.params.temperature} | R ${preset.params.gamma_r} G ${preset.params.gamma_g} B ${preset.params.gamma_b}`;
+
+                div.innerHTML = `
+                    <span class="preset-name">${preset.name}</span>
+                    <span class="preset-info">${info}</span>
+                    <button class="preset-delete" data-idx="${idx}" title="Preset löschen">&times;</button>
+                `;
+
+                // Click to load preset
+                div.addEventListener('click', (e) => {
+                    if (e.target.closest('.preset-delete')) return;
+                    applyParams(preset.params);
+                    showToast('Preset "' + preset.name + '" geladen');
+                });
+
+                // Delete button
+                div.querySelector('.preset-delete').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const presets = loadPresets();
+                    presets.splice(idx, 1);
+                    savePresets(presets);
+                    renderPresets();
+                    showToast('Preset gelöscht');
+                });
+
+                presetListEl.appendChild(div);
+            });
+        }
+
+        btnSavePreset.addEventListener('click', () => {
+            const name = presetNameInput.value.trim();
+            if (!name) {
+                presetNameInput.focus();
+                presetNameInput.style.borderColor = '#c44';
+                setTimeout(() => { presetNameInput.style.borderColor = ''; }, 1500);
+                return;
+            }
+            const presets = loadPresets();
+            presets.push({
+                name: name,
+                params: getParams(),
+                created: new Date().toISOString()
+            });
+            savePresets(presets);
+            presetNameInput.value = '';
+            renderPresets();
+            showToast('Preset "' + name + '" gespeichert');
+        });
+
+        // Enter key to save
+        presetNameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') btnSavePreset.click();
+        });
+
+        // Initial render
+        renderPresets();
 
         // Clear
         btnClear.addEventListener('click', () => {

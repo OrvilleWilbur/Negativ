@@ -6,6 +6,7 @@ Auto-Korrektur per Histogramm-Analyse, Download der konvertierten Positive.
 """
 
 import io
+import base64
 import time
 import uuid
 import tempfile
@@ -251,20 +252,21 @@ def analyze_negative(img: np.ndarray) -> dict:
     # Helligkeit: leichte Anpassung basierend auf Gesamthelligkeit
     brightness = round(np.clip((0.45 - overall_median) * 30, -20, 20))
 
+    # Alle Werte als Python-native Typen (JSON-serialisierbar)
     return {
-        "clip": str(clip),
-        "gamma": str(global_gamma),
-        "temperature": str(temperature),
-        "tint": str(tint),
-        "gamma_r": str(gamma_r),
-        "gamma_g": str(gamma_g),
-        "gamma_b": str(gamma_b),
-        "black_point": str(black_point),
-        "white_point": str(white_point),
-        "brightness": str(brightness),
-        "contrast": str(contrast),
-        "shadows": str(shadows),
-        "highlights": str(highlights),
+        "clip": str(float(clip)),
+        "gamma": str(float(global_gamma)),
+        "temperature": str(int(temperature)),
+        "tint": str(int(tint)),
+        "gamma_r": str(float(gamma_r)),
+        "gamma_g": str(float(gamma_g)),
+        "gamma_b": str(float(gamma_b)),
+        "black_point": str(float(black_point)),
+        "white_point": str(float(white_point)),
+        "brightness": str(int(brightness)),
+        "contrast": str(int(contrast)),
+        "shadows": str(int(shadows)),
+        "highlights": str(int(highlights)),
     }
 
 
@@ -309,7 +311,6 @@ def api_upload():
     if thumb.dtype == np.uint16:
         thumb_8bit = (thumb / 256).astype(np.uint8)
     _, buf = cv2.imencode(".jpg", thumb_8bit, [cv2.IMWRITE_JPEG_QUALITY, 85])
-    import base64
     original_b64 = base64.b64encode(buf.tobytes()).decode()
 
     return jsonify({
@@ -359,8 +360,11 @@ def api_analyze():
         return jsonify({"error": "Session abgelaufen"}), 404
 
     # Analyse auf Thumbnail für Geschwindigkeit
-    params = analyze_negative(entry["thumb"])
-    return jsonify(params)
+    try:
+        params = analyze_negative(entry["thumb"])
+        return jsonify(params)
+    except Exception as e:
+        return jsonify({"error": f"Analyse-Fehler: {str(e)}"}), 500
 
 
 @app.route("/api/process", methods=["POST"])

@@ -795,8 +795,8 @@
 
             try {
                 const resp = await fetch('/api/analyze', { method: 'POST', body: formData });
-                if (!resp.ok) throw new Error('Analyse fehlgeschlagen');
                 const params = await resp.json();
+                if (!resp.ok) throw new Error(params.error || 'Analyse fehlgeschlagen');
                 applyParams(params);
                 showToast('Auto-Korrektur angewendet');
                 requestPreview();

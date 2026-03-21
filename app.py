@@ -111,6 +111,11 @@ def api_process():
 
     clip = float(request.form.get("clip", 0.1))
     gamma = float(request.form.get("gamma", 1.2))
+    temperature = float(request.form.get("temperature", 0))
+    tint = float(request.form.get("tint", 0))
+    gamma_r = float(request.form.get("gamma_r", 1.0))
+    gamma_g = float(request.form.get("gamma_g", 1.0))
+    gamma_b = float(request.form.get("gamma_b", 1.0))
     output_format = request.form.get("format", "png")
 
     try:
@@ -118,7 +123,7 @@ def api_process():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
-    result = process_negative(img, clip, gamma)
+    result = process_negative(img, clip, gamma, temperature, tint, gamma_r, gamma_g, gamma_b)
 
     data, mimetype, ext = encode_image(result, output_format)
     stem = Path(original_name).stem
@@ -141,13 +146,18 @@ def api_preview():
     file = request.files["file"]
     clip = float(request.form.get("clip", 0.1))
     gamma = float(request.form.get("gamma", 1.2))
+    temperature = float(request.form.get("temperature", 0))
+    tint = float(request.form.get("tint", 0))
+    gamma_r = float(request.form.get("gamma_r", 1.0))
+    gamma_g = float(request.form.get("gamma_g", 1.0))
+    gamma_b = float(request.form.get("gamma_b", 1.0))
 
     try:
         img, _ = load_upload(file)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
-    result = process_negative(img, clip, gamma)
+    result = process_negative(img, clip, gamma, temperature, tint, gamma_r, gamma_g, gamma_b)
 
     # Auf 8-bit konvertieren für Vorschau
     if result.dtype == np.uint16:
@@ -165,4 +175,6 @@ def api_preview():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)

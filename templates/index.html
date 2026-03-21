@@ -277,6 +277,31 @@
             width: 0%;
         }
 
+        .color-section {
+            margin-top: 1.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem 1.2rem;
+        }
+
+        .color-section summary {
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .color-section summary:hover { color: var(--text); }
+
+        .range-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 0.15rem;
+        }
+
         footer {
             margin-top: 3rem;
             text-align: center;
@@ -327,6 +352,36 @@
             </div>
         </div>
 
+        <details class="color-section">
+            <summary>Chromatische Korrektur</summary>
+            <div class="controls" style="margin-top: 1rem;">
+                <div class="control-group">
+                    <label>Temperatur <span class="control-value" id="temp-value">0</span></label>
+                    <input type="range" id="temperature" min="-100" max="100" step="1" value="0">
+                    <div class="range-labels"><span>kalt</span><span>warm</span></div>
+                </div>
+                <div class="control-group">
+                    <label>Tönung <span class="control-value" id="tint-value">0</span></label>
+                    <input type="range" id="tint" min="-100" max="100" step="1" value="0">
+                    <div class="range-labels"><span>grün</span><span>magenta</span></div>
+                </div>
+            </div>
+            <div class="controls" style="margin-top: 0.5rem;">
+                <div class="control-group">
+                    <label style="color: #e66">Rot-Gamma <span class="control-value" id="gamma-r-value">1.0</span></label>
+                    <input type="range" id="gamma_r" min="0.5" max="2.0" step="0.05" value="1.0">
+                </div>
+                <div class="control-group">
+                    <label style="color: #6b6">Grün-Gamma <span class="control-value" id="gamma-g-value">1.0</span></label>
+                    <input type="range" id="gamma_g" min="0.5" max="2.0" step="0.05" value="1.0">
+                </div>
+                <div class="control-group">
+                    <label style="color: #68f">Blau-Gamma <span class="control-value" id="gamma-b-value">1.0</span></label>
+                    <input type="range" id="gamma_b" min="0.5" max="2.0" step="0.05" value="1.0">
+                </div>
+            </div>
+        </details>
+
         <div class="file-list" id="file-list"></div>
 
         <div class="progress-bar" id="progress-bar">
@@ -373,6 +428,16 @@
         const clipValue = document.getElementById('clip-value');
         const gammaValue = document.getElementById('gamma-value');
         const formatSelect = document.getElementById('format');
+        const tempSlider = document.getElementById('temperature');
+        const tintSlider = document.getElementById('tint');
+        const tempValue = document.getElementById('temp-value');
+        const tintValue = document.getElementById('tint-value');
+        const gammaRSlider = document.getElementById('gamma_r');
+        const gammaGSlider = document.getElementById('gamma_g');
+        const gammaBSlider = document.getElementById('gamma_b');
+        const gammaRValue = document.getElementById('gamma-r-value');
+        const gammaGValue = document.getElementById('gamma-g-value');
+        const gammaBValue = document.getElementById('gamma-b-value');
 
         let files = [];
         let results = new Map(); // filename -> blob URL
@@ -383,6 +448,21 @@
         });
         gammaSlider.addEventListener('input', () => {
             gammaValue.textContent = gammaSlider.value;
+        });
+        tempSlider.addEventListener('input', () => {
+            tempValue.textContent = tempSlider.value;
+        });
+        tintSlider.addEventListener('input', () => {
+            tintValue.textContent = tintSlider.value;
+        });
+        gammaRSlider.addEventListener('input', () => {
+            gammaRValue.textContent = gammaRSlider.value;
+        });
+        gammaGSlider.addEventListener('input', () => {
+            gammaGValue.textContent = gammaGSlider.value;
+        });
+        gammaBSlider.addEventListener('input', () => {
+            gammaBValue.textContent = gammaBSlider.value;
         });
 
         // Drag & Drop
@@ -478,6 +558,11 @@
                 formData.append('file', f);
                 formData.append('clip', clipSlider.value);
                 formData.append('gamma', gammaSlider.value);
+                formData.append('temperature', tempSlider.value);
+                formData.append('tint', tintSlider.value);
+                formData.append('gamma_r', gammaRSlider.value);
+                formData.append('gamma_g', gammaGSlider.value);
+                formData.append('gamma_b', gammaBSlider.value);
                 formData.append('format', formatSelect.value);
 
                 try {

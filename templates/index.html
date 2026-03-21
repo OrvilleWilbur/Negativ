@@ -441,6 +441,46 @@
             </div>
         </div>
 
+        <details class="color-section" open>
+            <summary>Tonwertkorrektur</summary>
+            <div class="controls" style="margin-top: 1rem;">
+                <div class="control-group">
+                    <label>Schwarzpunkt <span class="control-value" id="bp-value">0%</span></label>
+                    <input type="range" id="black_point" min="0" max="30" step="0.5" value="0">
+                    <div class="range-labels"><span>0</span><span>30%</span></div>
+                </div>
+                <div class="control-group">
+                    <label>Weißpunkt <span class="control-value" id="wp-value">100%</span></label>
+                    <input type="range" id="white_point" min="70" max="100" step="0.5" value="100">
+                    <div class="range-labels"><span>70%</span><span>100</span></div>
+                </div>
+            </div>
+            <div class="controls" style="margin-top: 0.5rem;">
+                <div class="control-group">
+                    <label>Helligkeit <span class="control-value" id="bright-value">0</span></label>
+                    <input type="range" id="brightness" min="-100" max="100" step="1" value="0">
+                    <div class="range-labels"><span>dunkel</span><span>hell</span></div>
+                </div>
+                <div class="control-group">
+                    <label>Kontrast <span class="control-value" id="contrast-value">0</span></label>
+                    <input type="range" id="contrast" min="-100" max="100" step="1" value="0">
+                    <div class="range-labels"><span>flach</span><span>steil</span></div>
+                </div>
+            </div>
+            <div class="controls" style="margin-top: 0.5rem;">
+                <div class="control-group">
+                    <label>Schatten <span class="control-value" id="shadows-value">0</span></label>
+                    <input type="range" id="shadows" min="-100" max="100" step="1" value="0">
+                    <div class="range-labels"><span>abdunkeln</span><span>anheben</span></div>
+                </div>
+                <div class="control-group">
+                    <label>Highlights <span class="control-value" id="highlights-value">0</span></label>
+                    <input type="range" id="highlights" min="-100" max="100" step="1" value="0">
+                    <div class="range-labels"><span>komprimieren</span><span>aufhellen</span></div>
+                </div>
+            </div>
+        </details>
+
         <details class="color-section">
             <summary>Chromatische Korrektur</summary>
             <div class="controls" style="margin-top: 1rem;">
@@ -545,6 +585,18 @@
         const gammaRValue = document.getElementById('gamma-r-value');
         const gammaGValue = document.getElementById('gamma-g-value');
         const gammaBValue = document.getElementById('gamma-b-value');
+        const bpSlider = document.getElementById('black_point');
+        const wpSlider = document.getElementById('white_point');
+        const bpValue = document.getElementById('bp-value');
+        const wpValue = document.getElementById('wp-value');
+        const brightSlider = document.getElementById('brightness');
+        const contrastSlider = document.getElementById('contrast');
+        const brightValue = document.getElementById('bright-value');
+        const contrastValue = document.getElementById('contrast-value');
+        const shadowsSlider = document.getElementById('shadows');
+        const highlightsSlider = document.getElementById('highlights');
+        const shadowsValue = document.getElementById('shadows-value');
+        const highlightsValue = document.getElementById('highlights-value');
 
         let files = [];
         let results = new Map(); // filename -> blob URL
@@ -570,6 +622,24 @@
         });
         gammaBSlider.addEventListener('input', () => {
             gammaBValue.textContent = gammaBSlider.value;
+        });
+        bpSlider.addEventListener('input', () => {
+            bpValue.textContent = bpSlider.value + '%';
+        });
+        wpSlider.addEventListener('input', () => {
+            wpValue.textContent = wpSlider.value + '%';
+        });
+        brightSlider.addEventListener('input', () => {
+            brightValue.textContent = brightSlider.value;
+        });
+        contrastSlider.addEventListener('input', () => {
+            contrastValue.textContent = contrastSlider.value;
+        });
+        shadowsSlider.addEventListener('input', () => {
+            shadowsValue.textContent = shadowsSlider.value;
+        });
+        highlightsSlider.addEventListener('input', () => {
+            highlightsValue.textContent = highlightsSlider.value;
         });
 
         // Drag & Drop
@@ -670,6 +740,12 @@
                 formData.append('gamma_r', gammaRSlider.value);
                 formData.append('gamma_g', gammaGSlider.value);
                 formData.append('gamma_b', gammaBSlider.value);
+                formData.append('black_point', bpSlider.value);
+                formData.append('white_point', wpSlider.value);
+                formData.append('brightness', brightSlider.value);
+                formData.append('contrast', contrastSlider.value);
+                formData.append('shadows', shadowsSlider.value);
+                formData.append('highlights', highlightsSlider.value);
                 formData.append('format', formatSelect.value);
 
                 try {
@@ -728,6 +804,12 @@
                 gamma_r: gammaRSlider.value,
                 gamma_g: gammaGSlider.value,
                 gamma_b: gammaBSlider.value,
+                black_point: bpSlider.value,
+                white_point: wpSlider.value,
+                brightness: brightSlider.value,
+                contrast: contrastSlider.value,
+                shadows: shadowsSlider.value,
+                highlights: highlightsSlider.value,
                 format: formatSelect.value
             };
         }
@@ -740,6 +822,12 @@
             if (p.gamma_r !== undefined)     { gammaRSlider.value = p.gamma_r;    gammaRValue.textContent = p.gamma_r; }
             if (p.gamma_g !== undefined)     { gammaGSlider.value = p.gamma_g;    gammaGValue.textContent = p.gamma_g; }
             if (p.gamma_b !== undefined)     { gammaBSlider.value = p.gamma_b;    gammaBValue.textContent = p.gamma_b; }
+            if (p.black_point !== undefined) { bpSlider.value = p.black_point;    bpValue.textContent = p.black_point + '%'; }
+            if (p.white_point !== undefined) { wpSlider.value = p.white_point;    wpValue.textContent = p.white_point + '%'; }
+            if (p.brightness !== undefined)  { brightSlider.value = p.brightness; brightValue.textContent = p.brightness; }
+            if (p.contrast !== undefined)    { contrastSlider.value = p.contrast;  contrastValue.textContent = p.contrast; }
+            if (p.shadows !== undefined)     { shadowsSlider.value = p.shadows;    shadowsValue.textContent = p.shadows; }
+            if (p.highlights !== undefined)  { highlightsSlider.value = p.highlights; highlightsValue.textContent = p.highlights; }
             if (p.format !== undefined)      { formatSelect.value = p.format; }
         }
 

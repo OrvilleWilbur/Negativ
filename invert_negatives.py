@@ -198,6 +198,119 @@ def apply_white_balance(
     return cv2.merge([b, g, r]).astype(img.dtype)
 
 
+def apply_input_levels(
+    img: np.ndarray, black_point: float, white_point: float
+) -> np.ndarray:
+    """Input Levels: Setzt Schwarz- und Weißpunkt manuell.
+
+    Alle Werte unterhalb des Schwarzpunkts werden schwarz,
+    alle oberhalb des Weißpunkts werden weiß.
+    Der Bereich dazwischen wird linear auf [0, max] gespreizt.
+
+    Args:
+        img: Eingabebild (uint8 oder uint16).
+        black_point: Schwarzpunkt als Prozent des Maximalwerts (0-100).
+        white_point: Weißpunkt als Prozent des Maximalwerts (0-100).
+
+    Returns:
+        Level-korrigiertes Bild gleichen Typs.
+    """
+    if black_point == 0.0 and white_point == 100.0:
+        return img
+
+    max_val = np.iinfo(img.dtype).max
+    low = max_val * (black_point / 100.0)
+    high = max_val * (white_point / 100.0)
+
+    if low >= high:
+        return img
+
+    result = img.astype(np.float64)
+    result = (result - low) / (high - low) * max_val
+    np.clip(result, 0, max_val, out=result)
+
+    return result.astype(img.dtype)
+
+
+def apply_brightness_contrast(
+    img: np.ndarray, brightness: float, contrast: float
+) -> np.ndarray:
+    """Helligkeit und Kontrast anpassen.
+
+    Args:
+        img: Eingabebild (uint8 oder uint16).
+        brightness: -100 (dunkler) bis +100 (heller). 0 = neutral.
+        contrast: -100 (flacher) bis +100 (steiler). 0 = neutral.
+
+    Returns:
+        Angepasstes Bild gleichen Typs.
+    """
+    if brightness == 0.0 and contrast == 0.0:
+        return img
+
+    max_val = np.iinfo(img.dtype).max
+    result = img.astype(np.float64)
+
+    # Kontrast: Skalierung um den Mittelpunkt (max_val / 2)
+    # contrast -100..+100 → Faktor 0.0..3.0
+    if contrast >= 0:
+        factor = 1.0 + contrast / 50.0   # 0 → 1.0, 100 → 3.0
+    else:
+        factor = 1.0 + contrast / 100.0  # -100 → 0.0, 0 → 1.0
+
+    mid = max_val / 2.0
+    result = (result - mid) * factor + mid
+
+    # Helligkeit: Linearer Offset
+    # brightness -100..+100 → ±30% des Maximalwerts
+    offset = (brightness / 100.0) * max_val * 0.3
+    result += offset
+
+    np.clip(result, 0, max_val, out=result)
+    return result.astype(img.dtype)
+
+
+def apply_shadow_highlight(
+    img: np.ndarray, shadows: float, highlights: float
+) -> np.ndarray:
+    """Schatten anheben und Highlights komprimieren.
+
+    Verwendet eine selektive Tonkurvenkorrektur:
+    - Schatten: Hebt dunkle Töne an, ohne helle zu beeinflussen.
+    - Highlights: Komprimiert helle Töne, ohne dunkle zu beeinflussen.
+
+    Args:
+        img: Eingabebild (uint8 oder uint16).
+        shadows: -100 (Schatten abdunkeln) bis +100 (Schatten anheben). 0 = neutral.
+        highlights: -100 (Highlights komprimieren) bis +100 (Highlights aufhellen). 0 = neutral.
+
+    Returns:
+        Tonwert-korrigiertes Bild gleichen Typs.
+    """
+    if shadows == 0.0 and highlights == 0.0:
+        return img
+
+    max_val = np.iinfo(img.dtype).max
+    result = img.astype(np.float64) / max_val  # Normalisieren auf [0, 1]
+
+    # Schatten: Wirkt auf dunkle Bereiche (gewichtet mit (1-x)²)
+    if shadows != 0.0:
+        shadow_strength = shadows / 100.0 * 0.4  # Maximal ±40% Anhebung
+        shadow_mask = (1.0 - result) ** 2  # Stärkste Wirkung bei Schwarz
+        result += shadow_mask * shadow_strength
+
+    # Highlights: Wirkt auf helle Bereiche (gewichtet mit x²)
+    if highlights != 0.0:
+        highlight_strength = highlights / 100.0 * 0.4
+        highlight_mask = result ** 2  # Stärkste Wirkung bei Weiß
+        result += highlight_mask * highlight_strength
+
+    np.clip(result, 0.0, 1.0, out=result)
+    result *= max_val
+
+    return result.astype(img.dtype)
+
+
 def process_negative(
     img: np.ndarray,
     clip_percent: float,
@@ -207,14 +320,23 @@ def process_negative(
     gamma_r: float = 1.0,
     gamma_g: float = 1.0,
     gamma_b: float = 1.0,
+    black_point: float = 0.0,
+    white_point: float = 100.0,
+    brightness: float = 0.0,
+    contrast: float = 0.0,
+    shadows: float = 0.0,
+    highlights: float = 0.0,
 ) -> np.ndarray:
     """Vollständige Verarbeitungspipeline für ein einzelnes Farbnegativ.
 
     1. Invertierung
     2. Kanalgetrennte Histogrammnormalisierung (Orangemaske-Neutralisierung)
-    3. Gamma-Korrektur (global)
-    4. Chromatische Korrektur: Weißabgleich (Temperatur/Tönung)
-    5. Chromatische Korrektur: Kanalgetrennte Gamma-Anpassung (RGB-Kurven)
+    3. Input Levels (Schwarz-/Weißpunkt)
+    4. Gamma-Korrektur (global)
+    5. Chromatische Korrektur: Weißabgleich (Temperatur/Tönung)
+    6. Chromatische Korrektur: Kanalgetrennte Gamma-Anpassung (RGB-Kurven)
+    7. Helligkeit / Kontrast
+    8. Schatten / Highlights
 
     Args:
         img: Rohscan des Farbnegativs (BGR, uint8 oder uint16).
@@ -225,6 +347,12 @@ def process_negative(
         gamma_r: Gamma für den Rot-Kanal (>1 = heller/wärmer).
         gamma_g: Gamma für den Grün-Kanal.
         gamma_b: Gamma für den Blau-Kanal (<1 = gelber, entfernt Blaustich).
+        black_point: Schwarzpunkt als Prozent (0-100).
+        white_point: Weißpunkt als Prozent (0-100).
+        brightness: Helligkeit (-100 bis +100).
+        contrast: Kontrast (-100 bis +100).
+        shadows: Schatten anheben/abdunkeln (-100 bis +100).
+        highlights: Highlights komprimieren/aufhellen (-100 bis +100).
 
     Returns:
         Verarbeitetes Positivbild.
@@ -237,19 +365,28 @@ def process_negative(
     normalized = [normalize_channel(ch, clip_percent) for ch in channels]
     merged = cv2.merge(normalized)
 
-    # Schritt 3: Globale Gamma-Korrektur
-    corrected = apply_gamma(merged, gamma)
+    # Schritt 3: Input Levels (Schwarz-/Weißpunkt)
+    corrected = apply_input_levels(merged, black_point, white_point)
 
-    # Schritt 4: Weißabgleich
+    # Schritt 4: Globale Gamma-Korrektur
+    corrected = apply_gamma(corrected, gamma)
+
+    # Schritt 5: Weißabgleich
     corrected = apply_white_balance(corrected, temperature, tint)
 
-    # Schritt 5: Kanalgetrennte Gamma-Korrektur (RGB-Kurven)
+    # Schritt 6: Kanalgetrennte Gamma-Korrektur (RGB-Kurven)
     if gamma_r != 1.0 or gamma_g != 1.0 or gamma_b != 1.0:
         b, g, r = cv2.split(corrected)
         r = apply_channel_gamma(r, gamma_r)
         g = apply_channel_gamma(g, gamma_g)
         b = apply_channel_gamma(b, gamma_b)
         corrected = cv2.merge([b, g, r])
+
+    # Schritt 7: Helligkeit / Kontrast
+    corrected = apply_brightness_contrast(corrected, brightness, contrast)
+
+    # Schritt 8: Schatten / Highlights
+    corrected = apply_shadow_highlight(corrected, shadows, highlights)
 
     return corrected
 

@@ -116,6 +116,12 @@ def api_process():
     gamma_r = float(request.form.get("gamma_r", 1.0))
     gamma_g = float(request.form.get("gamma_g", 1.0))
     gamma_b = float(request.form.get("gamma_b", 1.0))
+    black_point = float(request.form.get("black_point", 0))
+    white_point = float(request.form.get("white_point", 100))
+    brightness = float(request.form.get("brightness", 0))
+    contrast = float(request.form.get("contrast", 0))
+    shadows = float(request.form.get("shadows", 0))
+    highlights = float(request.form.get("highlights", 0))
     output_format = request.form.get("format", "png")
 
     try:
@@ -123,7 +129,10 @@ def api_process():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
-    result = process_negative(img, clip, gamma, temperature, tint, gamma_r, gamma_g, gamma_b)
+    result = process_negative(
+        img, clip, gamma, temperature, tint, gamma_r, gamma_g, gamma_b,
+        black_point, white_point, brightness, contrast, shadows, highlights,
+    )
 
     data, mimetype, ext = encode_image(result, output_format)
     stem = Path(original_name).stem
@@ -151,13 +160,22 @@ def api_preview():
     gamma_r = float(request.form.get("gamma_r", 1.0))
     gamma_g = float(request.form.get("gamma_g", 1.0))
     gamma_b = float(request.form.get("gamma_b", 1.0))
+    black_point = float(request.form.get("black_point", 0))
+    white_point = float(request.form.get("white_point", 100))
+    brightness = float(request.form.get("brightness", 0))
+    contrast = float(request.form.get("contrast", 0))
+    shadows = float(request.form.get("shadows", 0))
+    highlights = float(request.form.get("highlights", 0))
 
     try:
         img, _ = load_upload(file)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
-    result = process_negative(img, clip, gamma, temperature, tint, gamma_r, gamma_g, gamma_b)
+    result = process_negative(
+        img, clip, gamma, temperature, tint, gamma_r, gamma_g, gamma_b,
+        black_point, white_point, brightness, contrast, shadows, highlights,
+    )
 
     # Auf 8-bit konvertieren für Vorschau
     if result.dtype == np.uint16:

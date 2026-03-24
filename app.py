@@ -39,19 +39,30 @@ ALLOWED_EXTENSIONS = {".tif", ".tiff", ".png", ".jpg", ".jpeg", ".heic", ".heif"
 # Full-Res Bilder werden als komprimierte Bytes gespeichert (viel kleiner als numpy-Array)
 _image_cache: dict[str, dict] = {}
 _cache_lock = threading.Lock()
-CACHE_MAX_AGE = 600  # 10 Minuten
-CACHE_MAX_ITEMS = 10
-THUMB_MAX_DIM = 800  # Thumbnail für schnelle Vorschau
+CACHE_MAX_AGE = 300  # 5 Minuten
+CACHE_MAX_BYTES = 200 * 1024 * 1024  # 200 MB Gesamt-Cache-Limit
+THUMB_MAX_DIM = 600  # Thumbnail für schnelle Vorschau
+
+
+def _cache_size_bytes() -> int:
+    """Schätzt den Speicherverbrauch des Caches."""
+    total = 0
+    for v in _image_cache.values():
+        total += len(v.get("raw_bytes", b""))
+        thumb = v.get("thumb")
+        if thumb is not None:
+            total += thumb.nbytes
+    return total
 
 
 def _cleanup_cache() -> None:
-    """Entfernt abgelaufene Einträge aus dem Cache."""
+    """Entfernt abgelaufene Einträge und begrenzt Speicher."""
     now = time.time()
     expired = [k for k, v in _image_cache.items() if now - v["ts"] > CACHE_MAX_AGE]
     for k in expired:
         del _image_cache[k]
-    # Wenn immer noch zu voll, älteste entfernen
-    while len(_image_cache) > CACHE_MAX_ITEMS:
+    # Speicher-basiert: älteste entfernen bis unter Limit
+    while _image_cache and _cache_size_bytes() > CACHE_MAX_BYTES:
         oldest = min(_image_cache, key=lambda k: _image_cache[k]["ts"])
         del _image_cache[oldest]
 

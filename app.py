@@ -214,34 +214,49 @@ def analyze_negative(img: np.ndarray) -> dict:
     else:
         global_gamma = 1.2
 
-    # Schritt 6: Kanal-Gamma aus Median-Differenzen
-    # Ziel: Alle Kanäle auf ähnlichen Median bringen (Grau-Welt-Annahme)
-    target_ch_median = (r_med + g_med + b_med) / 3
-    if target_ch_median < 0.01:
-        target_ch_median = 0.3
+    # Schritt 6: Kanal-Gamma für Orange-Mask-Kompensation
+    # Nach Invertierung eines Farbnegativs gilt typischerweise:
+    #   Blau-Kanal ist am hellsten (Orangemaske blockiert Blau am wenigsten)
+    #   Rot-Kanal ist am dunkelsten (Orangemaske ist orange = viel Rot im Negativ)
+    # Ziel: Rot anheben, Blau senken, Grün als Referenz nutzen
+    #
+    # Wir nutzen Grün als Anker (gamma_g ≈ 1.0) und berechnen R/B relativ dazu.
+    def calc_channel_gamma(ch_med, ref_med):
+        """Berechne Gamma um ch_med auf ref_med zu bringen.
 
-    def calc_channel_gamma(ch_med, target):
-        if ch_med < 0.01:
+        process_negative wendet gamma als pixel^(1/gamma) an:
+          gamma > 1 → heller, gamma < 1 → dunkler.
+        Wenn ch_med < ref_med (Kanal zu dunkel), brauchen wir gamma > 1.
+        Formel: ch_med^(1/gamma) = ref_med → gamma = -log(ch_med)/log(ref_med)
+                ... vereinfacht: gamma = log(ch_med) / log(ref_med)
+        """
+        if ch_med < 0.01 or ref_med < 0.01:
             return 1.0
-        g = np.log(target) / np.log(max(ch_med, 0.01))
-        return round(max(0.5, min(g, 2.0)), 2)
+        # Kehrwert: weil process_negative pixel^(1/gamma) rechnet
+        raw = np.log(max(ch_med, 0.01)) / np.log(max(ref_med, 0.01))
+        return round(max(0.5, min(raw, 2.0)), 2)
 
-    gamma_r = calc_channel_gamma(r_med, target_ch_median)
-    gamma_g = calc_channel_gamma(g_med, target_ch_median)
-    gamma_b = calc_channel_gamma(b_med, target_ch_median)
+    # Grün als Referenzkanal (typischerweise am neutralsten)
+    gamma_g = 1.0
+    gamma_r = calc_channel_gamma(r_med, g_med)
+    gamma_b = calc_channel_gamma(b_med, g_med)
 
-    # Schritt 7: Temperatur aus R-B-Balance (nach Gamma-Korrektur)
-    r_corrected = r_med ** (1.0 / gamma_r) if gamma_r != 0 else r_med
-    b_corrected = b_med ** (1.0 / gamma_b) if gamma_b != 0 else b_med
-    rb_diff = r_corrected - b_corrected
-    # Positive Differenz = zu warm, negative = zu kalt
-    temperature = round(np.clip(rb_diff * -200, -100, 100))
+    # Schritt 7: Temperatur – Farbnegative brauchen fast immer Wärme
+    # Berechne aus dem Verhältnis R-median zu B-median im invertierten Bild
+    if r_med > 0.01 and b_med > 0.01:
+        rb_ratio = r_med / b_med  # < 1 bedeutet zu wenig Rot (= zu kalt)
+        # Typischer Portra-Wert: rb_ratio ≈ 0.4-0.7
+        temperature = round(np.clip((1.0 - rb_ratio) * 120, -50, 100))
+    else:
+        temperature = 50  # Default: warm
 
-    # Tönung aus G-Balance
-    g_corrected = g_med ** (1.0 / gamma_g) if gamma_g != 0 else g_med
-    rg_avg = (r_corrected + b_corrected) / 2
-    gb_diff = g_corrected - rg_avg
-    tint = round(np.clip(gb_diff * -200, -100, 100))
+    # Tönung aus G vs. Durchschnitt(R,B)
+    rb_avg = (r_med + b_med) / 2
+    if rb_avg > 0.01:
+        gr_ratio = g_med / rb_avg
+        tint = round(np.clip((1.0 - gr_ratio) * 80, -80, 80))
+    else:
+        tint = 0
 
     # Schritt 8: Kontrast aus Standardabweichung
     avg_std_norm = avg_std * 4  # Normalisieren auf ~1

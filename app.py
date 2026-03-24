@@ -456,6 +456,29 @@ def api_process():
     )
 
 
+@app.route("/api/status")
+def api_status():
+    """Gibt Server-Auslastung zurück: RAM, Cache, CPU."""
+    import psutil
+    proc = psutil.Process()
+    mem = proc.memory_info()
+    vm = psutil.virtual_memory()
+
+    with _cache_lock:
+        cache_items = len(_image_cache)
+        cache_bytes = _cache_size_bytes()
+
+    return jsonify({
+        "ram_used_mb": round(mem.rss / 1024 / 1024, 1),
+        "ram_total_mb": round(vm.total / 1024 / 1024, 1),
+        "ram_percent": round(mem.rss / vm.total * 100, 1),
+        "cache_items": cache_items,
+        "cache_mb": round(cache_bytes / 1024 / 1024, 1),
+        "cache_limit_mb": round(CACHE_MAX_BYTES / 1024 / 1024),
+        "cpu_percent": proc.cpu_percent(interval=0),
+    })
+
+
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 5000))

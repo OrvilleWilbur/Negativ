@@ -49,7 +49,7 @@
 
         .topbar-actions {
             display: flex;
-            gap: 6px;
+            gap: 10px;
             align-items: center;
         }
 
@@ -57,6 +57,38 @@
             padding: 3px 10px;
             font-size: 11px;
         }
+
+        .status-bar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        .status-meter {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .status-meter-bar {
+            width: 50px;
+            height: 5px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .status-meter-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s, background 0.5s;
+            background: #4a4;
+        }
+
+        .status-meter-fill.warn { background: #da3; }
+        .status-meter-fill.crit { background: #c44; }
 
         /* --- Dropzone (compact) --- */
         .dropzone {
@@ -476,6 +508,18 @@
     <div class="topbar">
         <h1><span>Negativ</span> – Film Negative Inverter</h1>
         <div class="topbar-actions">
+            <div class="status-bar" id="status-bar">
+                <div class="status-meter">
+                    <span>RAM</span>
+                    <div class="status-meter-bar"><div class="status-meter-fill" id="ram-fill" style="width:0%"></div></div>
+                    <span id="ram-text">–</span>
+                </div>
+                <div class="status-meter">
+                    <span>Cache</span>
+                    <div class="status-meter-bar"><div class="status-meter-fill" id="cache-fill" style="width:0%"></div></div>
+                    <span id="cache-text">–</span>
+                </div>
+            </div>
             <span class="footer-line">
                 <a href="https://github.com/OrvilleWilbur/Negativ" target="_blank">GitHub</a>
                 &middot; Bilder werden nicht gespeichert
@@ -1046,6 +1090,33 @@
         });
 
         renderPresets();
+
+        // --- Server Status Polling ---
+        const ramFill = document.getElementById('ram-fill');
+        const ramText = document.getElementById('ram-text');
+        const cacheFill = document.getElementById('cache-fill');
+        const cacheText = document.getElementById('cache-text');
+
+        async function updateStatus() {
+            try {
+                const resp = await fetch('/api/status');
+                if (!resp.ok) return;
+                const s = await resp.json();
+
+                const ramPct = s.ram_percent;
+                ramFill.style.width = ramPct + '%';
+                ramFill.className = 'status-meter-fill' + (ramPct > 80 ? ' crit' : ramPct > 60 ? ' warn' : '');
+                ramText.textContent = s.ram_used_mb + ' MB';
+
+                const cachePct = s.cache_limit_mb > 0 ? (s.cache_mb / s.cache_limit_mb * 100) : 0;
+                cacheFill.style.width = cachePct + '%';
+                cacheFill.className = 'status-meter-fill' + (cachePct > 80 ? ' crit' : cachePct > 60 ? ' warn' : '');
+                cacheText.textContent = s.cache_items + ' Bilder';
+            } catch {}
+        }
+
+        updateStatus();
+        setInterval(updateStatus, 5000);
     </script>
 </body>
 </html>

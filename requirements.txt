@@ -5,3 +5,4 @@ flask>=3.0
 gunicorn>=21.2
 pillow>=10.0
 pillow-heif>=0.16
+psutil>=5.9

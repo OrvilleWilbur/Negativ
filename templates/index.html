@@ -568,11 +568,11 @@
         <div class="right-panel">
             <!-- Base controls -->
             <div class="ctrl-row c2">
-                <div class="control-group">
+                <div class="control-group" title="Schneidet die dunkelsten und hellsten Pixel ab (Staub/Kratzer ignorieren). H&ouml;here Werte = st&auml;rkere Spreizung, entfernt Orangemaske aggressiver.">
                     <label>Clipping <span class="control-value" id="clip-value">0.1%</span></label>
                     <input type="range" id="clip" min="0" max="2" step="0.05" value="0.1">
                 </div>
-                <div class="control-group">
+                <div class="control-group" title="Globale Gamma-Korrektur. Werte &gt;1 hellen Mittelt&ouml;ne auf (typisch f&uuml;r Negative: 1.1–1.5). Werte &lt;1 dunkeln ab.">
                     <label>Gamma <span class="control-value" id="gamma-value">1.2</span></label>
                     <input type="range" id="gamma" min="0.5" max="2.5" step="0.05" value="1.2">
                 </div>
@@ -593,34 +593,34 @@
             <details class="section" open>
                 <summary>Tonwertkorrektur</summary>
                 <div class="ctrl-row c2">
-                    <div class="control-group">
+                    <div class="control-group" title="Definiert den dunkelsten Punkt im Bild. Erh&ouml;hen hebt den Schwarzwert an und macht Schatten heller. Wie &laquo;Levels&raquo; in Photoshop.">
                         <label>Schwarzpunkt <span class="control-value" id="bp-value">0%</span></label>
                         <input type="range" id="black_point" min="0" max="30" step="0.5" value="0">
                     </div>
-                    <div class="control-group">
+                    <div class="control-group" title="Definiert den hellsten Punkt im Bild. Senken komprimiert die Highlights und bringt Details in &uuml;berbelichteten Bereichen zur&uuml;ck.">
                         <label>Wei&szlig;punkt <span class="control-value" id="wp-value">100%</span></label>
                         <input type="range" id="white_point" min="70" max="100" step="0.5" value="100">
                     </div>
                 </div>
                 <div class="ctrl-row c2">
-                    <div class="control-group">
+                    <div class="control-group" title="Verschiebt alle Tonwerte gleichm&auml;&szlig;ig. Positiv = heller, negativ = dunkler. Beeinflusst das gesamte Bild linear.">
                         <label>Helligkeit <span class="control-value" id="bright-value">0</span></label>
                         <input type="range" id="brightness" min="-100" max="100" step="1" value="0">
                         <div class="range-labels"><span>dunkel</span><span>hell</span></div>
                     </div>
-                    <div class="control-group">
+                    <div class="control-group" title="Spreizt oder komprimiert den Tonwertumfang. Positiv = mehr Unterschied zwischen hell und dunkel. Negative Werte machen das Bild flacher.">
                         <label>Kontrast <span class="control-value" id="contrast-value">0</span></label>
                         <input type="range" id="contrast" min="-100" max="100" step="1" value="0">
                         <div class="range-labels"><span>flach</span><span>steil</span></div>
                     </div>
                 </div>
                 <div class="ctrl-row c2">
-                    <div class="control-group">
+                    <div class="control-group" title="Beeinflusst nur die dunklen Bildbereiche. Positiv = Schatten aufhellen (Details sichtbar machen). Negativ = Schatten vertiefen (mehr Tiefe).">
                         <label>Schatten <span class="control-value" id="shadows-value">0</span></label>
                         <input type="range" id="shadows" min="-100" max="100" step="1" value="0">
                         <div class="range-labels"><span>abdunkeln</span><span>anheben</span></div>
                     </div>
-                    <div class="control-group">
+                    <div class="control-group" title="Beeinflusst nur die hellen Bildbereiche. Negativ = Highlights zur&uuml;ckholen (z.B. ausgebrannter Himmel). Positiv = Lichter verst&auml;rken.">
                         <label>Highlights <span class="control-value" id="highlights-value">0</span></label>
                         <input type="range" id="highlights" min="-100" max="100" step="1" value="0">
                         <div class="range-labels"><span>komprimieren</span><span>aufhellen</span></div>
@@ -632,27 +632,27 @@
             <details class="section">
                 <summary>Chromatische Korrektur</summary>
                 <div class="ctrl-row c2">
-                    <div class="control-group">
+                    <div class="control-group" title="Wei&szlig;abgleich: Verschiebt die Blau-Gelb-Balance. Positive Werte machen das Bild w&auml;rmer (entfernt Blaustich der Orangemaske). Wichtigster Regler f&uuml;r Farbnegative!">
                         <label>Temperatur <span class="control-value" id="temp-value">0</span></label>
                         <input type="range" id="temperature" min="-100" max="100" step="1" value="0">
                         <div class="range-labels"><span>kalt</span><span>warm</span></div>
                     </div>
-                    <div class="control-group">
+                    <div class="control-group" title="Wei&szlig;abgleich: Verschiebt die Gr&uuml;n-Magenta-Balance. Korrigiert Farbstiche bei Kunstlicht oder gealtertem Film. Positiv = mehr Magenta (w&auml;rmere Hautt&ouml;ne).">
                         <label>T&ouml;nung <span class="control-value" id="tint-value">0</span></label>
                         <input type="range" id="tint" min="-100" max="100" step="1" value="0">
                         <div class="range-labels"><span>gr&uuml;n</span><span>magenta</span></div>
                     </div>
                 </div>
                 <div class="ctrl-row c3">
-                    <div class="control-group">
+                    <div class="control-group" title="Rot-Kanal Gamma. Werte &gt;1 heben Rot an (w&auml;rmere Hautt&ouml;ne, entfernt Cyan). Typisch f&uuml;r Portra: 1.1–1.5.">
                         <label style="color: #e66">R <span class="control-value" id="gamma-r-value">1.0</span></label>
                         <input type="range" id="gamma_r" min="0.5" max="2.0" step="0.05" value="1.0">
                     </div>
-                    <div class="control-group">
+                    <div class="control-group" title="Gr&uuml;n-Kanal Gamma. Meist bei 1.0 lassen. Senken entfernt Gr&uuml;nstich, erh&ouml;hen bringt Gr&uuml;n in Vegetation zur&uuml;ck.">
                         <label style="color: #6b6">G <span class="control-value" id="gamma-g-value">1.0</span></label>
                         <input type="range" id="gamma_g" min="0.5" max="2.0" step="0.05" value="1.0">
                     </div>
-                    <div class="control-group">
+                    <div class="control-group" title="Blau-Kanal Gamma. Werte &lt;1 senken Blau (entfernt Blaustich der Orangemaske). Typisch f&uuml;r Portra: 0.6–0.9. Zu niedrig = Gelbstich.">
                         <label style="color: #68f">B <span class="control-value" id="gamma-b-value">1.0</span></label>
                         <input type="range" id="gamma_b" min="0.5" max="2.0" step="0.05" value="1.0">
                     </div>

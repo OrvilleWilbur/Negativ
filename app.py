@@ -35,11 +35,12 @@ ALLOWED_EXTENSIONS = {".tif", ".tiff", ".png", ".jpg", ".jpeg", ".heic", ".heif"
 # ---------------------------------------------------------------------------
 # In-Memory Bild-Cache für Echtzeit-Vorschau
 # ---------------------------------------------------------------------------
-# Speichert: session_id -> {"full": np.ndarray, "thumb": np.ndarray, "ts": float}
+# Speichert: session_id -> {"raw_bytes": bytes, "suffix": str, "thumb": np.ndarray, "ts": float}
+# Full-Res Bilder werden als komprimierte Bytes gespeichert (viel kleiner als numpy-Array)
 _image_cache: dict[str, dict] = {}
 _cache_lock = threading.Lock()
 CACHE_MAX_AGE = 600  # 10 Minuten
-CACHE_MAX_ITEMS = 20
+CACHE_MAX_ITEMS = 10
 THUMB_MAX_DIM = 800  # Thumbnail für schnelle Vorschau
 
 
@@ -289,6 +290,13 @@ def api_upload():
     if not file.filename:
         return jsonify({"error": "Keine Datei ausgewählt"}), 400
 
+    filename = file.filename or "upload"
+    suffix = Path(filename).suffix.lower()
+
+    # Rohe Bytes lesen (komprimiert, spart RAM vs. entpacktes numpy-Array)
+    raw_bytes = file.read()
+    file.seek(0)
+
     try:
         img, filename = load_upload(file)
     except ValueError as e:
@@ -296,11 +304,17 @@ def api_upload():
 
     session_id = str(uuid.uuid4())
     thumb = _make_thumbnail(img)
+    width, height = img.shape[1], img.shape[0]
+    depth = 16 if img.dtype == np.uint16 else 8
+
+    # Full-Res Array sofort freigeben – nur komprimierte Bytes + Thumb cachen
+    del img
 
     with _cache_lock:
         _cleanup_cache()
         _image_cache[session_id] = {
-            "full": img,
+            "raw_bytes": raw_bytes,
+            "suffix": suffix,
             "thumb": thumb,
             "filename": filename,
             "ts": time.time(),
@@ -316,9 +330,9 @@ def api_upload():
     return jsonify({
         "session_id": session_id,
         "filename": filename,
-        "width": img.shape[1],
-        "height": img.shape[0],
-        "depth": 16 if img.dtype == np.uint16 else 8,
+        "width": width,
+        "height": height,
+        "depth": depth,
         "original_preview": f"data:image/jpeg;base64,{original_b64}",
     })
 
@@ -386,8 +400,20 @@ def api_process():
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
     else:
-        img = entry["full"]
+        # Full-Res aus gecachten komprimierten Bytes rekonstruieren
+        raw_bytes = entry["raw_bytes"]
+        suffix = entry["suffix"]
         filename = entry["filename"]
+        if suffix in {".heic", ".heif"}:
+            pil_img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+            img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+        else:
+            arr = np.frombuffer(raw_bytes, dtype=np.uint8)
+            img = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
+            if img is None:
+                return jsonify({"error": "Bild konnte nicht dekodiert werden"}), 500
+            if len(img.shape) == 2:
+                img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
     params = _parse_params(request.form)
     result = process_negative(img, **params)

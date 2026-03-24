@@ -16,52 +16,61 @@
             --text-muted: #888;
             --accent: #e07040;
             --accent-hover: #f08050;
-            --accent-green: #4a4;
-            --radius: 12px;
+            --radius: 8px;
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
             background: var(--bg);
             color: var(--text);
-            min-height: 100vh;
-            line-height: 1.5;
+            height: 100vh;
+            overflow: hidden;
+            font-size: 13px;
+            line-height: 1.4;
         }
 
-        .container {
-            max-width: 960px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem;
+        /* --- Top Bar --- */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            height: 36px;
         }
 
-        header {
-            text-align: center;
-            margin-bottom: 2.5rem;
-        }
-
-        header h1 {
-            font-size: 1.8rem;
+        .topbar h1 {
+            font-size: 14px;
             font-weight: 700;
-            letter-spacing: -0.02em;
         }
 
-        header h1 span { color: var(--accent); }
+        .topbar h1 span { color: var(--accent); }
 
-        header p {
-            color: var(--text-muted);
-            margin-top: 0.4rem;
-            font-size: 0.95rem;
+        .topbar-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
         }
 
-        /* Drop Zone */
+        .topbar-actions .btn {
+            padding: 3px 10px;
+            font-size: 11px;
+        }
+
+        /* --- Dropzone (compact) --- */
         .dropzone {
             border: 2px dashed var(--border);
             border-radius: var(--radius);
-            padding: 3rem 2rem;
+            padding: 8px 16px;
             text-align: center;
             cursor: pointer;
             transition: border-color 0.2s, background 0.2s;
             background: var(--surface);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            justify-content: center;
         }
 
         .dropzone:hover, .dropzone.dragover {
@@ -69,109 +78,36 @@
             background: var(--surface-hover);
         }
 
-        .dropzone.has-image { padding: 1rem; }
-
-        .dropzone-icon {
-            font-size: 2.5rem;
-            margin-bottom: 0.8rem;
-            opacity: 0.6;
-        }
-
-        .dropzone-text { color: var(--text-muted); }
+        .dropzone-icon { font-size: 1.2rem; opacity: 0.6; }
+        .dropzone-text { color: var(--text-muted); font-size: 12px; }
         .dropzone-text strong { color: var(--text); }
-
-        .dropzone-formats {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            margin-top: 0.5rem;
-        }
+        .dropzone-formats { font-size: 10px; color: var(--text-muted); }
 
         #file-input { display: none; }
 
-        /* Controls */
-        .controls {
+        /* --- Main Layout --- */
+        .main-layout {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 1rem;
-            margin-top: 1.5rem;
+            grid-template-columns: 1fr 340px;
+            gap: 0;
+            height: calc(100vh - 36px);
         }
 
-        @media (max-width: 600px) {
-            .controls { grid-template-columns: 1fr; }
-        }
-
-        .control-group label {
-            display: block;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin-bottom: 0.4rem;
-        }
-
-        .control-group input[type="range"] {
-            width: 100%;
-            accent-color: var(--accent);
-        }
-
-        .control-value {
-            font-size: 0.85rem;
-            color: var(--accent);
-            font-weight: 600;
-            float: right;
-        }
-
-        .control-group select {
-            width: 100%;
-            padding: 0.5rem;
-            background: var(--surface);
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.9rem;
-        }
-
-        /* Sections */
-        .section {
-            margin-top: 1.5rem;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 1rem 1.2rem;
-        }
-
-        .section summary {
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--text-muted);
-        }
-
-        .section summary:hover { color: var(--text); }
-
-        .range-labels {
+        /* --- Left: Preview + Files --- */
+        .left-panel {
             display: flex;
-            justify-content: space-between;
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            margin-top: 0.15rem;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 8px;
+            gap: 6px;
         }
-
-        /* Preview */
-        .preview-section {
-            margin-top: 2rem;
-            display: none;
-        }
-
-        .preview-section.visible { display: block; }
 
         .preview-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        @media (max-width: 600px) {
-            .preview-grid { grid-template-columns: 1fr; }
+            gap: 6px;
+            flex: 1;
+            min-height: 0;
         }
 
         .preview-card {
@@ -180,18 +116,31 @@
             overflow: hidden;
             border: 1px solid var(--border);
             position: relative;
+            display: flex;
+            flex-direction: column;
         }
 
         .preview-card h3 {
-            padding: 0.6rem 1rem;
-            font-size: 0.85rem;
+            padding: 4px 8px;
+            font-size: 11px;
             color: var(--text-muted);
             border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .preview-card .img-wrap {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
         }
 
         .preview-card img {
-            width: 100%;
-            height: auto;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
             display: block;
         }
 
@@ -202,28 +151,179 @@
             transform: translate(-50%, -50%);
             display: none;
             color: var(--accent);
-            font-size: 0.85rem;
+            font-size: 12px;
             background: rgba(10,10,10,0.8);
-            padding: 0.4rem 0.8rem;
-            border-radius: 6px;
+            padding: 3px 8px;
+            border-radius: 4px;
         }
 
         .preview-spinner.visible { display: block; }
 
-        /* Actions */
-        .actions {
-            margin-top: 1.5rem;
+        .preview-placeholder {
             display: flex;
-            gap: 0.6rem;
+            align-items: center;
             justify-content: center;
-            flex-wrap: wrap;
+            height: 100%;
+            color: var(--text-muted);
+            font-size: 12px;
         }
 
-        .btn {
-            padding: 0.7rem 1.5rem;
+        /* File list (bottom of left panel) */
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            max-height: 120px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 8px;
+            background: var(--surface);
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: border-color 0.2s;
+            font-size: 12px;
+        }
+
+        .file-item:hover { border-color: var(--accent); }
+        .file-item.active { border-color: var(--accent); background: var(--surface-hover); }
+
+        .file-item .name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .file-item .size { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+
+        .file-item .btn-download {
+            padding: 2px 8px;
+            background: var(--accent);
+            color: #fff;
             border: none;
-            border-radius: 8px;
-            font-size: 0.9rem;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .file-item .btn-download:hover { background: var(--accent-hover); }
+
+        .file-item .status { font-size: 11px; white-space: nowrap; }
+        .status-processing { color: var(--accent); }
+        .status-done { color: #4a4; }
+
+        /* --- Right: Controls --- */
+        .right-panel {
+            border-left: 1px solid var(--border);
+            overflow-y: auto;
+            padding: 6px 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        /* Controls grid */
+        .ctrl-row {
+            display: grid;
+            gap: 3px 6px;
+        }
+
+        .ctrl-row.c2 { grid-template-columns: 1fr 1fr; }
+        .ctrl-row.c3 { grid-template-columns: 1fr 1fr 1fr; }
+
+        .control-group label {
+            display: block;
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-bottom: 0;
+            line-height: 1.2;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent);
+            height: 12px;
+            margin: 0;
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-runnable-track {
+            height: 3px;
+            background: var(--border);
+            border-radius: 2px;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent);
+            margin-top: -3.5px;
+            cursor: pointer;
+        }
+
+        .control-value {
+            font-size: 10px;
+            color: var(--accent);
+            font-weight: 600;
+            float: right;
+        }
+
+        .control-group select {
+            width: 100%;
+            padding: 3px 6px;
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .range-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 8px;
+            color: var(--text-muted);
+            margin-top: -1px;
+            line-height: 1;
+        }
+
+        /* Sections */
+        .section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 4px 8px;
+        }
+
+        .section summary {
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .section summary:hover { color: var(--text); }
+
+        .section .ctrl-row { margin-top: 4px; }
+
+        /* Buttons */
+        .btn {
+            padding: 5px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
             font-weight: 600;
             cursor: pointer;
             transition: background 0.2s, opacity 0.2s;
@@ -231,97 +331,94 @@
 
         .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        .btn-primary {
-            background: var(--accent);
-            color: #fff;
-        }
-
+        .btn-primary { background: var(--accent); color: #fff; }
         .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
 
-        .btn-auto {
-            background: #2a6b3a;
-            color: #fff;
-        }
-
+        .btn-auto { background: #2a6b3a; color: #fff; }
         .btn-auto:hover:not(:disabled) { background: #358a48; }
 
-        .btn-secondary {
-            background: var(--surface);
-            color: var(--text);
-            border: 1px solid var(--border);
-        }
-
+        .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
         .btn-secondary:hover:not(:disabled) { background: var(--surface-hover); }
 
-        /* File List */
-        .file-list {
-            margin-top: 1.5rem;
+        .action-row {
             display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
+            gap: 4px;
+            flex-wrap: wrap;
         }
 
-        .file-item {
+        .action-row .btn { flex: 1; min-width: 0; text-align: center; }
+
+        /* Presets */
+        .preset-save-row {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+        }
+
+        .preset-save-row input[type="text"] {
+            flex: 1;
+            padding: 3px 6px;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .preset-save-row input[type="text"]::placeholder { color: var(--text-muted); }
+
+        .preset-list {
+            margin-top: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .preset-item {
             display: flex;
             align-items: center;
-            gap: 1rem;
-            padding: 0.8rem 1rem;
-            background: var(--surface);
-            border-radius: 8px;
+            gap: 4px;
+            padding: 4px 6px;
+            background: var(--bg);
+            border-radius: 4px;
             border: 1px solid var(--border);
             cursor: pointer;
             transition: border-color 0.2s;
         }
 
-        .file-item:hover { border-color: var(--accent); }
+        .preset-item:hover { border-color: var(--accent); }
 
-        .file-item.active { border-color: var(--accent); background: var(--surface-hover); }
+        .preset-item .preset-name { flex: 1; font-size: 12px; font-weight: 500; }
 
-        .file-item .name {
-            flex: 1;
-            font-size: 0.9rem;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
+        .preset-item .preset-info { font-size: 10px; color: var(--text-muted); }
 
-        .file-item .size {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            white-space: nowrap;
-        }
-
-        .file-item .status {
-            font-size: 0.8rem;
-            white-space: nowrap;
-        }
-
-        .status-pending { color: var(--text-muted); }
-        .status-processing { color: var(--accent); }
-        .status-done { color: #4a4; }
-        .status-error { color: #c44; }
-
-        .file-item .btn-download {
-            padding: 0.35rem 0.8rem;
-            background: var(--accent);
-            color: #fff;
+        .preset-item .preset-delete {
+            background: none;
             border: none;
-            border-radius: 6px;
-            font-size: 0.8rem;
+            color: var(--text-muted);
             cursor: pointer;
-            text-decoration: none;
-            white-space: nowrap;
+            font-size: 14px;
+            padding: 0 2px;
+            line-height: 1;
         }
 
-        .file-item .btn-download:hover { background: var(--accent-hover); }
+        .preset-item .preset-delete:hover { color: #c44; }
+
+        .preset-empty {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 6px;
+        }
 
         /* Progress */
         .progress-bar {
             width: 100%;
-            height: 4px;
+            height: 3px;
             background: var(--border);
             border-radius: 2px;
-            margin-top: 1rem;
             overflow: hidden;
             display: none;
         }
@@ -336,89 +433,17 @@
             width: 0%;
         }
 
-        /* Presets */
-        .preset-save-row {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 1rem;
-        }
-
-        .preset-save-row input[type="text"] {
-            flex: 1;
-            padding: 0.5rem 0.8rem;
-            background: var(--bg);
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.9rem;
-        }
-
-        .preset-save-row input[type="text"]::placeholder {
-            color: var(--text-muted);
-        }
-
-        .preset-list {
-            margin-top: 0.8rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.4rem;
-        }
-
-        .preset-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 0.8rem;
-            background: var(--bg);
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            cursor: pointer;
-            transition: border-color 0.2s;
-        }
-
-        .preset-item:hover { border-color: var(--accent); }
-
-        .preset-item .preset-name {
-            flex: 1;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-
-        .preset-item .preset-info {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-
-        .preset-item .preset-delete {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 1rem;
-            padding: 0.2rem;
-            line-height: 1;
-        }
-
-        .preset-item .preset-delete:hover { color: #c44; }
-
-        .preset-empty {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            text-align: center;
-            padding: 0.8rem;
-        }
-
         /* Toast */
         #toast {
             position: fixed;
-            bottom: 2rem;
+            bottom: 12px;
             left: 50%;
             transform: translateX(-50%);
             background: var(--accent);
             color: #fff;
-            padding: 0.6rem 1.5rem;
-            border-radius: 8px;
-            font-size: 0.9rem;
+            padding: 4px 14px;
+            border-radius: 6px;
+            font-size: 12px;
             font-weight: 600;
             opacity: 0;
             transition: opacity 0.3s;
@@ -426,177 +451,198 @@
             z-index: 999;
         }
 
-        footer {
-            margin-top: 3rem;
-            text-align: center;
-            font-size: 0.8rem;
+        .footer-line {
+            font-size: 10px;
             color: var(--text-muted);
+            text-align: center;
+            padding: 2px;
         }
 
-        footer a { color: var(--accent); text-decoration: none; }
-        footer a:hover { text-decoration: underline; }
+        .footer-line a { color: var(--accent); text-decoration: none; }
+
+        /* Responsive: Stack on narrow screens */
+        @media (max-width: 800px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            body { overflow: auto; }
+            .left-panel { min-height: 40vh; }
+            .right-panel { border-left: none; border-top: 1px solid var(--border); }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1><span>Negativ</span> – Film Negative Inverter</h1>
-            <p>Orange-Mask-Korrektur mit Echtzeit-Vorschau</p>
-        </header>
-
-        <div class="dropzone" id="dropzone">
-            <div class="dropzone-icon">&#x1F4F7;</div>
-            <div class="dropzone-text">
-                <strong>Negativ-Scans hierhin ziehen</strong><br>
-                oder klicken zum Ausw&auml;hlen
-            </div>
-            <div class="dropzone-formats">
-                TIFF &middot; PNG &middot; JPEG{% if heic_supported %} &middot; HEIC{% endif %} &middot; max 100 MB
-            </div>
-            <input type="file" id="file-input" multiple
-                   accept=".tif,.tiff,.png,.jpg,.jpeg{% if heic_supported %},.heic,.heif{% endif %}">
+    <div class="topbar">
+        <h1><span>Negativ</span> – Film Negative Inverter</h1>
+        <div class="topbar-actions">
+            <span class="footer-line">
+                <a href="https://github.com/OrvilleWilbur/Negativ" target="_blank">GitHub</a>
+                &middot; Bilder werden nicht gespeichert
+            </span>
         </div>
+    </div>
 
-        <!-- Preview: sofort sichtbar nach Upload -->
-        <div class="preview-section" id="preview-section">
-            <div class="preview-grid">
+    <div class="main-layout">
+        <!-- LEFT: Preview + Files -->
+        <div class="left-panel">
+            <!-- Dropzone: compact inline -->
+            <div class="dropzone" id="dropzone">
+                <span class="dropzone-icon">&#x1F4F7;</span>
+                <span class="dropzone-text">
+                    <strong>Negative hierhin ziehen</strong> oder klicken
+                </span>
+                <span class="dropzone-formats">
+                    TIFF &middot; PNG &middot; JPEG{% if heic_supported %} &middot; HEIC{% endif %}
+                </span>
+                <input type="file" id="file-input" multiple
+                       accept=".tif,.tiff,.png,.jpg,.jpeg{% if heic_supported %},.heic,.heif{% endif %}">
+            </div>
+
+            <!-- Preview images -->
+            <div class="preview-grid" id="preview-section">
                 <div class="preview-card">
                     <h3>Original (Negativ)</h3>
-                    <img id="preview-original" alt="Original">
+                    <div class="img-wrap">
+                        <img id="preview-original" alt="Original" style="display:none;">
+                        <div class="preview-placeholder" id="placeholder-orig">Kein Bild geladen</div>
+                    </div>
                 </div>
                 <div class="preview-card">
                     <h3>Ergebnis (Positiv)</h3>
-                    <img id="preview-result" alt="Ergebnis">
+                    <div class="img-wrap">
+                        <img id="preview-result" alt="Ergebnis" style="display:none;">
+                        <div class="preview-placeholder" id="placeholder-result">Kein Ergebnis</div>
+                    </div>
                     <div class="preview-spinner" id="preview-spinner">Verarbeite...</div>
                 </div>
             </div>
-        </div>
 
-        <!-- Basis-Controls -->
-        <div class="controls">
-            <div class="control-group">
-                <label>Clipping <span class="control-value" id="clip-value">0.1%</span></label>
-                <input type="range" id="clip" min="0" max="2" step="0.05" value="0.1">
-            </div>
-            <div class="control-group">
-                <label>Gamma <span class="control-value" id="gamma-value">1.2</span></label>
-                <input type="range" id="gamma" min="0.5" max="2.5" step="0.05" value="1.2">
-            </div>
-            <div class="control-group">
-                <label>Ausgabeformat</label>
-                <select id="format">
-                    <option value="png">PNG (verlustfrei)</option>
-                    <option value="tiff">TIFF (16-bit)</option>
-                    <option value="jpeg">JPEG (komprimiert)</option>
-                </select>
+            <!-- File list -->
+            <div class="file-list" id="file-list"></div>
+
+            <div class="progress-bar" id="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
             </div>
         </div>
 
-        <!-- Tonwertkorrektur -->
-        <details class="section" open>
-            <summary>Tonwertkorrektur</summary>
-            <div class="controls" style="margin-top: 1rem;">
+        <!-- RIGHT: Controls -->
+        <div class="right-panel">
+            <!-- Base controls -->
+            <div class="ctrl-row c2">
                 <div class="control-group">
-                    <label>Schwarzpunkt <span class="control-value" id="bp-value">0%</span></label>
-                    <input type="range" id="black_point" min="0" max="30" step="0.5" value="0">
-                    <div class="range-labels"><span>0</span><span>30%</span></div>
+                    <label>Clipping <span class="control-value" id="clip-value">0.1%</span></label>
+                    <input type="range" id="clip" min="0" max="2" step="0.05" value="0.1">
                 </div>
                 <div class="control-group">
-                    <label>Wei&szlig;punkt <span class="control-value" id="wp-value">100%</span></label>
-                    <input type="range" id="white_point" min="70" max="100" step="0.5" value="100">
-                    <div class="range-labels"><span>70%</span><span>100</span></div>
+                    <label>Gamma <span class="control-value" id="gamma-value">1.2</span></label>
+                    <input type="range" id="gamma" min="0.5" max="2.5" step="0.05" value="1.2">
                 </div>
             </div>
-            <div class="controls" style="margin-top: 0.5rem;">
-                <div class="control-group">
-                    <label>Helligkeit <span class="control-value" id="bright-value">0</span></label>
-                    <input type="range" id="brightness" min="-100" max="100" step="1" value="0">
-                    <div class="range-labels"><span>dunkel</span><span>hell</span></div>
-                </div>
-                <div class="control-group">
-                    <label>Kontrast <span class="control-value" id="contrast-value">0</span></label>
-                    <input type="range" id="contrast" min="-100" max="100" step="1" value="0">
-                    <div class="range-labels"><span>flach</span><span>steil</span></div>
-                </div>
-            </div>
-            <div class="controls" style="margin-top: 0.5rem;">
-                <div class="control-group">
-                    <label>Schatten <span class="control-value" id="shadows-value">0</span></label>
-                    <input type="range" id="shadows" min="-100" max="100" step="1" value="0">
-                    <div class="range-labels"><span>abdunkeln</span><span>anheben</span></div>
-                </div>
-                <div class="control-group">
-                    <label>Highlights <span class="control-value" id="highlights-value">0</span></label>
-                    <input type="range" id="highlights" min="-100" max="100" step="1" value="0">
-                    <div class="range-labels"><span>komprimieren</span><span>aufhellen</span></div>
-                </div>
-            </div>
-        </details>
 
-        <!-- Chromatische Korrektur -->
-        <details class="section">
-            <summary>Chromatische Korrektur</summary>
-            <div class="controls" style="margin-top: 1rem;">
+            <div class="ctrl-row c2">
                 <div class="control-group">
-                    <label>Temperatur <span class="control-value" id="temp-value">0</span></label>
-                    <input type="range" id="temperature" min="-100" max="100" step="1" value="0">
-                    <div class="range-labels"><span>kalt</span><span>warm</span></div>
-                </div>
-                <div class="control-group">
-                    <label>T&ouml;nung <span class="control-value" id="tint-value">0</span></label>
-                    <input type="range" id="tint" min="-100" max="100" step="1" value="0">
-                    <div class="range-labels"><span>gr&uuml;n</span><span>magenta</span></div>
+                    <label>Ausgabeformat</label>
+                    <select id="format">
+                        <option value="png">PNG (verlustfrei)</option>
+                        <option value="tiff">TIFF (16-bit)</option>
+                        <option value="jpeg">JPEG (komprimiert)</option>
+                    </select>
                 </div>
             </div>
-            <div class="controls" style="margin-top: 0.5rem;">
-                <div class="control-group">
-                    <label style="color: #e66">Rot-Gamma <span class="control-value" id="gamma-r-value">1.0</span></label>
-                    <input type="range" id="gamma_r" min="0.5" max="2.0" step="0.05" value="1.0">
+
+            <!-- Tonwertkorrektur -->
+            <details class="section" open>
+                <summary>Tonwertkorrektur</summary>
+                <div class="ctrl-row c2">
+                    <div class="control-group">
+                        <label>Schwarzpunkt <span class="control-value" id="bp-value">0%</span></label>
+                        <input type="range" id="black_point" min="0" max="30" step="0.5" value="0">
+                    </div>
+                    <div class="control-group">
+                        <label>Wei&szlig;punkt <span class="control-value" id="wp-value">100%</span></label>
+                        <input type="range" id="white_point" min="70" max="100" step="0.5" value="100">
+                    </div>
                 </div>
-                <div class="control-group">
-                    <label style="color: #6b6">Gr&uuml;n-Gamma <span class="control-value" id="gamma-g-value">1.0</span></label>
-                    <input type="range" id="gamma_g" min="0.5" max="2.0" step="0.05" value="1.0">
+                <div class="ctrl-row c2">
+                    <div class="control-group">
+                        <label>Helligkeit <span class="control-value" id="bright-value">0</span></label>
+                        <input type="range" id="brightness" min="-100" max="100" step="1" value="0">
+                        <div class="range-labels"><span>dunkel</span><span>hell</span></div>
+                    </div>
+                    <div class="control-group">
+                        <label>Kontrast <span class="control-value" id="contrast-value">0</span></label>
+                        <input type="range" id="contrast" min="-100" max="100" step="1" value="0">
+                        <div class="range-labels"><span>flach</span><span>steil</span></div>
+                    </div>
                 </div>
-                <div class="control-group">
-                    <label style="color: #68f">Blau-Gamma <span class="control-value" id="gamma-b-value">1.0</span></label>
-                    <input type="range" id="gamma_b" min="0.5" max="2.0" step="0.05" value="1.0">
+                <div class="ctrl-row c2">
+                    <div class="control-group">
+                        <label>Schatten <span class="control-value" id="shadows-value">0</span></label>
+                        <input type="range" id="shadows" min="-100" max="100" step="1" value="0">
+                        <div class="range-labels"><span>abdunkeln</span><span>anheben</span></div>
+                    </div>
+                    <div class="control-group">
+                        <label>Highlights <span class="control-value" id="highlights-value">0</span></label>
+                        <input type="range" id="highlights" min="-100" max="100" step="1" value="0">
+                        <div class="range-labels"><span>komprimieren</span><span>aufhellen</span></div>
+                    </div>
                 </div>
+            </details>
+
+            <!-- Chromatische Korrektur -->
+            <details class="section">
+                <summary>Chromatische Korrektur</summary>
+                <div class="ctrl-row c2">
+                    <div class="control-group">
+                        <label>Temperatur <span class="control-value" id="temp-value">0</span></label>
+                        <input type="range" id="temperature" min="-100" max="100" step="1" value="0">
+                        <div class="range-labels"><span>kalt</span><span>warm</span></div>
+                    </div>
+                    <div class="control-group">
+                        <label>T&ouml;nung <span class="control-value" id="tint-value">0</span></label>
+                        <input type="range" id="tint" min="-100" max="100" step="1" value="0">
+                        <div class="range-labels"><span>gr&uuml;n</span><span>magenta</span></div>
+                    </div>
+                </div>
+                <div class="ctrl-row c3">
+                    <div class="control-group">
+                        <label style="color: #e66">R <span class="control-value" id="gamma-r-value">1.0</span></label>
+                        <input type="range" id="gamma_r" min="0.5" max="2.0" step="0.05" value="1.0">
+                    </div>
+                    <div class="control-group">
+                        <label style="color: #6b6">G <span class="control-value" id="gamma-g-value">1.0</span></label>
+                        <input type="range" id="gamma_g" min="0.5" max="2.0" step="0.05" value="1.0">
+                    </div>
+                    <div class="control-group">
+                        <label style="color: #68f">B <span class="control-value" id="gamma-b-value">1.0</span></label>
+                        <input type="range" id="gamma_b" min="0.5" max="2.0" step="0.05" value="1.0">
+                    </div>
+                </div>
+            </details>
+
+            <!-- Actions -->
+            <div class="action-row">
+                <button class="btn btn-auto" id="btn-auto" disabled>Auto</button>
+                <button class="btn btn-primary" id="btn-process" disabled>Download</button>
+                <button class="btn btn-secondary" id="btn-clear" disabled>Reset</button>
+                <button class="btn btn-secondary" id="btn-copy-params" title="Parameter kopieren">Kopieren</button>
+                <button class="btn btn-secondary" id="btn-paste-params" title="Parameter einf&uuml;gen">Einf&uuml;gen</button>
             </div>
-        </details>
 
-        <!-- Presets -->
-        <details class="section">
-            <summary>Gespeicherte Presets</summary>
-            <div class="preset-save-row">
-                <input type="text" id="preset-name" placeholder="z.B. Kodak Portra 160 – Tageslicht">
-                <button class="btn btn-primary" id="btn-save-preset" style="padding: 0.5rem 1.2rem; font-size: 0.85rem;">Speichern</button>
-            </div>
-            <div class="preset-list" id="preset-list"></div>
-        </details>
-
-        <!-- Dateiliste -->
-        <div class="file-list" id="file-list"></div>
-
-        <div class="progress-bar" id="progress-bar">
-            <div class="progress-fill" id="progress-fill"></div>
+            <!-- Presets -->
+            <details class="section">
+                <summary>Presets</summary>
+                <div class="preset-save-row">
+                    <input type="text" id="preset-name" placeholder="z.B. Portra 160 Tageslicht">
+                    <button class="btn btn-primary" id="btn-save-preset" style="padding: 3px 10px; font-size: 11px;">Speichern</button>
+                </div>
+                <div class="preset-list" id="preset-list"></div>
+            </details>
         </div>
-
-        <!-- Aktions-Buttons -->
-        <div class="actions">
-            <button class="btn btn-auto" id="btn-auto" disabled title="Automatische Korrektur per Histogramm-Analyse">Auto-Korrektur</button>
-            <button class="btn btn-primary" id="btn-process" disabled>Download (Vollaufl&ouml;sung)</button>
-            <button class="btn btn-secondary" id="btn-clear" disabled>Zur&uuml;cksetzen</button>
-            <button class="btn btn-secondary" id="btn-copy-params" title="Parameter kopieren">&#x1F4CB; Kopieren</button>
-            <button class="btn btn-secondary" id="btn-paste-params" title="Parameter einf&uuml;gen">&#x1F4C4; Einf&uuml;gen</button>
-        </div>
-
-        <div id="toast"></div>
-
-        <footer>
-            <a href="https://github.com/OrvilleWilbur/Negativ" target="_blank">GitHub</a>
-            &middot; Bilder werden nicht gespeichert &middot; MIT License
-        </footer>
     </div>
+
+    <div id="toast"></div>
 
     <script>
         // --- DOM Elements ---
@@ -608,10 +654,11 @@
         const btnAuto = document.getElementById('btn-auto');
         const progressBar = document.getElementById('progress-bar');
         const progressFill = document.getElementById('progress-fill');
-        const previewSection = document.getElementById('preview-section');
         const previewOriginal = document.getElementById('preview-original');
         const previewResult = document.getElementById('preview-result');
         const previewSpinner = document.getElementById('preview-spinner');
+        const placeholderOrig = document.getElementById('placeholder-orig');
+        const placeholderResult = document.getElementById('placeholder-result');
         const toastEl = document.getElementById('toast');
 
         // Slider elements
@@ -634,10 +681,10 @@
         const formatSelect = document.getElementById('format');
 
         // --- State ---
-        let uploadedFiles = [];    // {file, session_id, filename, original_preview, resultUrl}
-        let activeIndex = -1;      // aktuell angezeigtes Bild
-        let previewAbort = null;   // AbortController für laufende Vorschau
-        let previewTimer = null;   // Debounce-Timer
+        let uploadedFiles = [];
+        let activeIndex = -1;
+        let previewAbort = null;
+        let previewTimer = null;
 
         // --- Toast ---
         function showToast(msg) {
@@ -646,7 +693,7 @@
             setTimeout(() => { toastEl.style.opacity = '0'; }, 2000);
         }
 
-        // --- Slider Events: Label aktualisieren + Echtzeit-Vorschau ---
+        // --- Slider Events ---
         Object.entries(sliders).forEach(([key, s]) => {
             s.el.addEventListener('input', () => {
                 s.val.textContent = s.fmt(s.el.value);
@@ -678,9 +725,7 @@
             e.preventDefault();
             dropzone.classList.add('dragover');
         });
-        dropzone.addEventListener('dragleave', () => {
-            dropzone.classList.remove('dragover');
-        });
+        dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
         dropzone.addEventListener('drop', e => {
             e.preventDefault();
             dropzone.classList.remove('dragover');
@@ -691,7 +736,7 @@
             fileInput.value = '';
         });
 
-        // --- Upload: Bild hochladen und cachen ---
+        // --- Upload ---
         async function handleNewFiles(newFiles) {
             for (const file of newFiles) {
                 if (uploadedFiles.some(u => u.file.name === file.name && u.file.size === file.size)) continue;
@@ -699,7 +744,6 @@
                 const entry = { file, session_id: null, filename: file.name, original_preview: null, resultUrl: null };
                 uploadedFiles.push(entry);
 
-                // Upload im Hintergrund
                 const formData = new FormData();
                 formData.append('file', file);
 
@@ -711,10 +755,7 @@
                     entry.filename = data.filename;
                     entry.original_preview = data.original_preview;
 
-                    // Erstes Bild automatisch auswählen
-                    if (uploadedFiles.length === 1) {
-                        selectFile(0);
-                    }
+                    if (uploadedFiles.length === 1) selectFile(0);
                 } catch (err) {
                     showToast('Upload-Fehler: ' + err.message);
                 }
@@ -727,7 +768,7 @@
             btnAuto.disabled = uploadedFiles.length === 0;
         }
 
-        // --- Datei auswählen und Vorschau laden ---
+        // --- Select file ---
         function selectFile(index) {
             activeIndex = index;
             const entry = uploadedFiles[index];
@@ -738,19 +779,19 @@
             } else {
                 previewOriginal.src = URL.createObjectURL(entry.file);
             }
+            previewOriginal.style.display = 'block';
+            placeholderOrig.style.display = 'none';
 
-            previewSection.classList.add('visible');
             renderFileList();
             requestPreview();
         }
 
-        // --- Echtzeit-Vorschau (debounced) ---
+        // --- Realtime preview (debounced) ---
         function requestPreview() {
             if (activeIndex < 0) return;
             const entry = uploadedFiles[activeIndex];
             if (!entry || !entry.session_id) return;
 
-            // Vorherigen Request abbrechen
             if (previewAbort) previewAbort.abort();
             clearTimeout(previewTimer);
 
@@ -771,24 +812,24 @@
                     })
                     .then(blob => {
                         previewResult.src = URL.createObjectURL(blob);
+                        previewResult.style.display = 'block';
+                        placeholderResult.style.display = 'none';
                         previewSpinner.classList.remove('visible');
                     })
                     .catch(err => {
-                        if (err.name !== 'AbortError') {
-                            previewSpinner.classList.remove('visible');
-                        }
+                        if (err.name !== 'AbortError') previewSpinner.classList.remove('visible');
                     });
-            }, 250); // 250ms Debounce
+            }, 250);
         }
 
-        // --- Auto-Korrektur ---
+        // --- Auto correction ---
         btnAuto.addEventListener('click', async () => {
             if (activeIndex < 0) return;
             const entry = uploadedFiles[activeIndex];
             if (!entry || !entry.session_id) return;
 
             btnAuto.disabled = true;
-            btnAuto.textContent = 'Analysiere...';
+            btnAuto.textContent = '...';
 
             const formData = new FormData();
             formData.append('session_id', entry.session_id);
@@ -805,10 +846,10 @@
             }
 
             btnAuto.disabled = false;
-            btnAuto.textContent = 'Auto-Korrektur';
+            btnAuto.textContent = 'Auto';
         });
 
-        // --- Dateiliste rendern ---
+        // --- File list ---
         function formatSize(bytes) {
             if (bytes < 1024) return bytes + ' B';
             if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -821,11 +862,12 @@
                 const div = document.createElement('div');
                 div.className = 'file-item' + (i === activeIndex ? ' active' : '');
 
+                const ext = formatSelect.value === 'jpeg' ? 'jpg' : formatSelect.value === 'tiff' ? 'tif' : 'png';
                 const statusHtml = entry.resultUrl
-                    ? `<a class="btn-download" href="${entry.resultUrl}" download="${entry.filename.replace(/\.[^.]+$/, '')}_positive.${formatSelect.value === 'jpeg' ? 'jpg' : formatSelect.value === 'tiff' ? 'tif' : 'png'}">Download</a>`
+                    ? `<a class="btn-download" href="${entry.resultUrl}" download="${entry.filename.replace(/\.[^.]+$/, '')}_positive.${ext}">Download</a>`
                     : entry.session_id
                         ? `<span class="status status-done">Bereit</span>`
-                        : `<span class="status status-processing">Lade hoch...</span>`;
+                        : `<span class="status status-processing">Lade...</span>`;
 
                 div.innerHTML = `
                     <span class="name">${entry.filename}</span>
@@ -842,12 +884,12 @@
             });
         }
 
-        // --- Vollauflösung verarbeiten + Download ---
+        // --- Full-res processing + download ---
         btnProcess.addEventListener('click', async () => {
             if (uploadedFiles.length === 0) return;
 
             btnProcess.disabled = true;
-            btnProcess.textContent = 'Verarbeite...';
+            btnProcess.textContent = '...';
             progressBar.classList.add('visible');
 
             for (let i = 0; i < uploadedFiles.length; i++) {
@@ -884,7 +926,7 @@
             }, 800);
 
             btnProcess.disabled = false;
-            btnProcess.textContent = 'Download (Vollauflösung)';
+            btnProcess.textContent = 'Download';
         });
 
         // --- Clear ---
@@ -896,7 +938,10 @@
             btnProcess.disabled = true;
             btnClear.disabled = true;
             btnAuto.disabled = true;
-            previewSection.classList.remove('visible');
+            previewOriginal.style.display = 'none';
+            previewResult.style.display = 'none';
+            placeholderOrig.style.display = 'flex';
+            placeholderResult.style.display = 'flex';
         });
 
         // --- Copy / Paste ---
@@ -943,20 +988,20 @@
         function renderPresets() {
             const presets = loadPresets();
             if (presets.length === 0) {
-                presetListEl.innerHTML = '<div class="preset-empty">Noch keine Presets gespeichert</div>';
+                presetListEl.innerHTML = '<div class="preset-empty">Noch keine Presets</div>';
                 return;
             }
             presetListEl.innerHTML = '';
             presets.forEach((preset, idx) => {
                 const p = preset.params;
-                const info = `Clip ${p.clip}% | \u0393 ${p.gamma} | BP ${p.black_point}% WP ${p.white_point}% | Kontr ${p.contrast} | R${p.gamma_r} G${p.gamma_g} B${p.gamma_b}`;
+                const info = `Clip ${p.clip}% \u0393${p.gamma} R${p.gamma_r} G${p.gamma_g} B${p.gamma_b}`;
 
                 const div = document.createElement('div');
                 div.className = 'preset-item';
                 div.innerHTML = `
                     <span class="preset-name">${preset.name}</span>
                     <span class="preset-info">${info}</span>
-                    <button class="preset-delete" data-idx="${idx}" title="Preset l\u00f6schen">&times;</button>
+                    <button class="preset-delete" data-idx="${idx}" title="L\u00f6schen">&times;</button>
                 `;
 
                 div.addEventListener('click', (e) => {

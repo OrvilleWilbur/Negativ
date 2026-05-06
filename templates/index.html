@@ -1140,7 +1140,15 @@
 
                 try {
                     const resp = await fetch('/api/process', { method: 'POST', body: formData });
-                    if (!resp.ok) throw new Error('Verarbeitung fehlgeschlagen');
+                    if (!resp.ok) {
+                        // Versuche, die Server-Fehlermeldung zu lesen (JSON)
+                        let msg = 'Verarbeitung fehlgeschlagen';
+                        try {
+                            const j = await resp.json();
+                            if (j && j.error) msg = j.error;
+                        } catch {}
+                        throw new Error(msg);
+                    }
                     const blob = await resp.blob();
                     entry.resultUrl = URL.createObjectURL(blob);
                 } catch (err) {

@@ -7,12 +7,15 @@ Unterstützt verlustfreie 16-Bit-TIFF-Verarbeitung.
 """
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 
 import cv2
 import numpy as np
 from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Konfigurierbare Konstanten
@@ -21,12 +24,14 @@ CLIP_PERCENT: float = 0.1        # Prozent der Pixel, die oben/unten abgeschnitt
 GAMMA: float = 1.2               # Gamma-Korrektur für mittlere Tonwerte
 SUPPORTED_EXTENSIONS: set[str] = {".tif", ".tiff", ".png", ".jpg", ".jpeg"}
 
-# Hard-Clamps für die kanalgetrennte Spreizung. Verhindern, dass eine
-# extreme Histogramm-Verteilung in einem Kanal (z. B. Schnee-dominierter
-# Rotkanal) zu einer aggressiven Spreizung führt, die Tiefenzeichnung
-# verbrennt oder Highlights ausreißt.
-NORMALIZE_BP_MAX: float = 0.05   # Per-Kanal-Schwarzpunkt darf 5% nie überschreiten
-NORMALIZE_WP_MIN: float = 0.80   # Per-Kanal-Weißpunkt darf 80% nie unterschreiten
+# Hard-Clamps für die LUMINANZ-basierte Tonemap-Stufe (Stage 2 der
+# Basis-Korrektur). Werden NICHT mehr auf den Einzelkanälen angewendet —
+# dort ist Pure Per-Kanal-Spreizung ohne Clamps gewünscht (Stage 1), damit
+# der Orange-Cast vollständig eliminiert wird. Der Highlight-/Shadow-Schutz
+# läuft anschließend auf dem Graustufen-Histogramm und wirkt symmetrisch
+# auf alle drei Farbkanäle, was die Farbbalance aus Stage 1 erhält.
+TONEMAP_BP_MAX: float = 0.05     # Luminanz-Schwarzpunkt darf 5% nie überschreiten
+TONEMAP_WP_MIN: float = 0.80     # Luminanz-Weißpunkt darf 80% nie unterschreiten
 
 
 # ---------------------------------------------------------------------------
@@ -77,25 +82,30 @@ def invert(img: np.ndarray) -> np.ndarray:
     return max_val - img
 
 
-def normalize_channel(channel: np.ndarray, clip_percent: float) -> np.ndarray:
-    """Kanalgetrennte Histogrammspreizung mit Clipping und Hard-Clamps.
+def normalize_channel(
+    channel: np.ndarray,
+    clip_percent: float,
+    channel_label: str = "?",
+) -> np.ndarray:
+    """Stage 1 der Basis-Korrektur — pure Per-Kanal-Histogrammspreizung.
 
     Berechnet pro Kanal unabhängig die Perzentile für Schwarz- und Weißpunkt
-    (clip_percent % an jedem Ende) und spreizt die verbleibenden Werte linear
-    auf das volle Spektrum. Dies eliminiert die spezifische Dichte der
-    orangefarbenen Filmmaske physikalisch korrekt — jeder Kanal erhält sein
-    eigenes Min/Max-Mapping.
+    (clip_percent % an jedem Ende) und spreizt die verbleibenden Werte
+    **unlimitiert** linear auf das volle Spektrum.
 
-    Zusätzlich werden harte Sicherheitsgrenzen erzwungen
-    (`NORMALIZE_BP_MAX`, `NORMALIZE_WP_MIN`): selbst wenn ein Kanal ein
-    extrem asymmetrisches Histogramm hat (z. B. Schnee-dominierter Rotkanal
-    mit 0,5 %-Perzentil bei 40 % Helligkeit), werden Tiefen und Lichter
-    erhalten, weil das Mapping nicht aggressiver als
-    [BP_MAX, WP_MIN] → [0, max] werden darf.
+    Diese Funktion eliminiert die spezifische Dichte der orangefarbenen
+    Filmmaske physikalisch restlos — jeder Kanal erhält sein eigenes
+    Min/Max-Mapping ohne externe Limitierung. Der Schutz vor Highlight-
+    Burning bei extremen Histogrammen (Schnee, Himmel) erfolgt **nicht** an
+    dieser Stelle, sondern in der nachgelagerten Stufe 2
+    (`apply_luminance_tonemap`), die das Graustufen-Histogramm clamped.
+
+    Loggt die ermittelten Perzentil-Werte pro Kanal (Level INFO).
 
     Args:
         channel: Einzelner Farbkanal (2D, uint8 oder uint16).
         clip_percent: Prozentsatz der Pixel, der an beiden Enden abgeschnitten wird.
+        channel_label: Bezeichner ("R", "G", "B" oder "?") nur für Logging.
 
     Returns:
         Normalisierter Kanal gleichen Typs.
@@ -103,34 +113,110 @@ def normalize_channel(channel: np.ndarray, clip_percent: float) -> np.ndarray:
     max_val = np.iinfo(channel.dtype).max
     total_pixels = channel.size
 
-    # Histogramm berechnen
+    # --- Histogramm + CDF ----------------------------------------------
     hist = cv2.calcHist([channel], [0], None, [max_val + 1], [0, max_val + 1])
     hist = hist.flatten()
-
-    # Kumulative Summe für Perzentil-Berechnung
     cumsum = np.cumsum(hist)
     clip_count = total_pixels * (clip_percent / 100.0)
 
-    # Untere/obere Schwelle aus Perzentilen
+    # --- Schwellen aus den Perzentilen (KEINE Clamps) ------------------
     low = int(np.searchsorted(cumsum, clip_count))
     high = int(np.searchsorted(cumsum, total_pixels - clip_count))
 
-    # Hard-Clamps: Per-Kanal-BP nie über 5 %, Per-Kanal-WP nie unter 80 %.
-    # Wirkt nur, wenn das Perzentil außerhalb des sicheren Bereichs liegt
-    # — bei normalen Bildern bleibt das Mapping unverändert.
-    low = min(low, int(max_val * NORMALIZE_BP_MAX))
-    high = max(high, int(max_val * NORMALIZE_WP_MIN))
-
-    # Sicherheitsgrenzen
+    # --- Sicherheits-Fallback bei pathologischen Histogrammen ----------
+    fallback = False
     if low >= high:
         low, high = 0, max_val
+        fallback = True
 
-    # Lineare Spreizung auf [0, max_val]
-    result = channel.astype(np.float64)
+    # --- Diagnose-Log: absolute Schwellen + relative Lage in [0, max] --
+    logger.info(
+        "[Stage 1 / normalize_channel] ch=%s clip=%.2f%% perzentile=[low=%d (%.3f), high=%d (%.3f)] "
+        "max=%d (Pure Spreizung, keine Clamps)%s",
+        channel_label,
+        clip_percent,
+        low, low / max_val,
+        high, high / max_val,
+        max_val,
+        " [FALLBACK]" if fallback else "",
+    )
+
+    # --- Lineare Spreizung auf [0, max_val] ----------------------------
+    result = channel.astype(np.float32)
     result = (result - low) / (high - low) * max_val
     np.clip(result, 0, max_val, out=result)
 
     return result.astype(channel.dtype)
+
+
+def apply_luminance_tonemap(img: np.ndarray) -> np.ndarray:
+    """Stage 2 der Basis-Korrektur — globales Tonemapping über Luminanz.
+
+    Architektur:
+
+    1. Berechnet das Graustufen-Histogramm (ITU-R BT.601 Luminanz via
+       ``cv2.cvtColor(..., COLOR_BGR2GRAY)``).
+    2. Ermittelt die 0.5 %- und 99.5 %-Perzentile auf der Luminanz.
+    3. Erzwingt die Hard-Clamps ``TONEMAP_BP_MAX`` (≤ 5 %) und
+       ``TONEMAP_WP_MIN`` (≥ 80 %) auf diesen Schwellen.
+    4. Wendet die resultierende affine Transformation
+       ``(x - low) / (high - low) * max`` **identisch auf alle drei
+       Farbkanäle (B, G, R)** an.
+
+    Diese symmetrische Anwendung erhält die Farbbalance, die in Stage 1
+    durch unlimitierte Per-Kanal-Spreizung erreicht wurde, und schützt
+    gleichzeitig vor Highlight-Burning bzw. Shadow-Crushing bei
+    asymmetrischen Helligkeitsverteilungen (Schnee, Nachtmotive).
+
+    Args:
+        img: BGR-Bild (uint8 oder uint16) — typischerweise Output von Stage 1.
+
+    Returns:
+        Tonal-korrigiertes BGR-Bild gleichen Typs.
+    """
+    max_val = np.iinfo(img.dtype).max
+
+    # --- Luminanz aus dem farbneutralisierten Bild ---------------------
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # --- Perzentile auf der Luminanz -----------------------------------
+    low_raw = float(np.percentile(gray, 0.5))
+    high_raw = float(np.percentile(gray, 99.5))
+
+    # --- Hard-Clamps anwenden ------------------------------------------
+    bp_cap = max_val * TONEMAP_BP_MAX
+    wp_floor = max_val * TONEMAP_WP_MIN
+    low = min(low_raw, bp_cap)
+    high = max(high_raw, wp_floor)
+
+    flags = []
+    if low < low_raw:
+        flags.append(f"BP-clamp@{bp_cap:.0f}")
+    if high > high_raw:
+        flags.append(f"WP-clamp@{wp_floor:.0f}")
+
+    # --- Sicherheits-Fallback ------------------------------------------
+    if low >= high:
+        low, high = 0.0, float(max_val)
+        flags.append("FALLBACK")
+
+    # --- Diagnose-Log --------------------------------------------------
+    logger.info(
+        "[Stage 2 / apply_luminance_tonemap] luminanz_perzentile=[low_raw=%.1f (%.3f), high_raw=%.1f (%.3f)] "
+        "→ effektiv=[low=%.1f (%.3f), high=%.1f (%.3f)] max=%d %s",
+        low_raw, low_raw / max_val,
+        high_raw, high_raw / max_val,
+        low, low / max_val,
+        high, high / max_val,
+        max_val,
+        "[" + ", ".join(flags) + "]" if flags else "",
+    )
+
+    # --- Affine Transformation symmetrisch auf alle Kanäle -------------
+    result = img.astype(np.float32)
+    result = (result - low) / (high - low) * max_val
+    np.clip(result, 0, max_val, out=result)
+    return result.astype(img.dtype)
 
 
 def apply_gamma(img: np.ndarray, gamma: float) -> np.ndarray:
@@ -147,7 +233,7 @@ def apply_gamma(img: np.ndarray, gamma: float) -> np.ndarray:
     inv_gamma = 1.0 / gamma
 
     # Normalisieren → Gamma → Zurückskalieren
-    result = img.astype(np.float64) / max_val
+    result = img.astype(np.float32) / max_val
     np.power(result, inv_gamma, out=result)
     result *= max_val
     np.clip(result, 0, max_val, out=result)
@@ -171,7 +257,7 @@ def apply_channel_gamma(
         return channel
     max_val = np.iinfo(channel.dtype).max
     inv_gamma = 1.0 / gamma
-    result = channel.astype(np.float64) / max_val
+    result = channel.astype(np.float32) / max_val
     np.power(result, inv_gamma, out=result)
     result *= max_val
     np.clip(result, 0, max_val, out=result)
@@ -198,7 +284,7 @@ def apply_white_balance(
         return img
 
     max_val = np.iinfo(img.dtype).max
-    result = img.astype(np.float64)
+    result = img.astype(np.float32)
 
     b, g, r = cv2.split(result)
 
@@ -246,7 +332,7 @@ def apply_input_levels(
     if low >= high:
         return img
 
-    result = img.astype(np.float64)
+    result = img.astype(np.float32)
     result = (result - low) / (high - low) * max_val
     np.clip(result, 0, max_val, out=result)
 
@@ -270,7 +356,7 @@ def apply_brightness_contrast(
         return img
 
     max_val = np.iinfo(img.dtype).max
-    result = img.astype(np.float64)
+    result = img.astype(np.float32)
 
     # Kontrast: Skalierung um den Mittelpunkt (max_val / 2)
     # contrast -100..+100 → Faktor 0.0..3.0
@@ -312,7 +398,7 @@ def apply_shadow_highlight(
         return img
 
     max_val = np.iinfo(img.dtype).max
-    result = img.astype(np.float64) / max_val  # Normalisieren auf [0, 1]
+    result = img.astype(np.float32) / max_val  # Normalisieren auf [0, 1]
 
     # Schatten: Wirkt auf dunkle Bereiche (gewichtet mit (1-x)²)
     if shadows != 0.0:
@@ -412,16 +498,17 @@ def process_negative(
 ) -> np.ndarray:
     """Vollständige Verarbeitungspipeline für ein einzelnes Farbnegativ.
 
-    0a. Rotation (vor Crop, damit Crop-Koordinaten zur sichtbaren Orientierung passen)
-    0b. Cropping (vor allen Farbberechnungen, damit Histogramm nur den Ausschnitt sieht)
-    1. Invertierung
-    2. Kanalgetrennte Histogrammnormalisierung (Orangemaske-Neutralisierung)
-    3. Input Levels (Schwarz-/Weißpunkt)
-    4. Gamma-Korrektur (global)
-    5. Chromatische Korrektur: Weißabgleich (Temperatur/Tönung)
-    6. Chromatische Korrektur: Kanalgetrennte Gamma-Anpassung (RGB-Kurven)
-    7. Helligkeit / Kontrast
-    8. Schatten / Highlights
+     0a. Rotation (vor Crop, damit Crop-Koordinaten zur sichtbaren Orientierung passen)
+     0b. Cropping (vor allen Farbberechnungen, damit Histogramm nur den Ausschnitt sieht)
+     1.  Invertierung
+     2a. Stage 1 — Pure kanalgetrennte Histogrammspreizung (Orangemaske-Neutralisation)
+     2b. Stage 2 — Globales Luminanz-Tonemapping mit Highlight-/Shadow-Clamps
+     3.  Input Levels (Schwarz-/Weißpunkt)
+     4.  Gamma-Korrektur (global)
+     5.  Chromatische Korrektur: Weißabgleich (Temperatur/Tönung)
+     6.  Chromatische Korrektur: Kanalgetrennte Gamma-Anpassung (RGB-Kurven)
+     7.  Helligkeit / Kontrast
+     8.  Schatten / Highlights
 
     Args:
         img: Rohscan des Farbnegativs (BGR, uint8 oder uint16).
@@ -453,10 +540,18 @@ def process_negative(
     # Schritt 1: Invertierung
     inverted = invert(img)
 
-    # Schritt 2: Kanalgetrennte Normalisierung
-    channels = cv2.split(inverted)  # B, G, R
-    normalized = [normalize_channel(ch, clip_percent) for ch in channels]
-    merged = cv2.merge(normalized)
+    # Schritt 2a (Stage 1): Pure Per-Kanal-Spreizung — eliminiert die
+    # Orangemaske durch unlimitierte Streckung jedes Kanals auf [0, max].
+    # cv2.split(BGR) -> [B, G, R]. Labels explizit für das Diagnose-Log.
+    b_ch, g_ch, r_ch = cv2.split(inverted)
+    b_norm = normalize_channel(b_ch, clip_percent, channel_label="B")
+    g_norm = normalize_channel(g_ch, clip_percent, channel_label="G")
+    r_norm = normalize_channel(r_ch, clip_percent, channel_label="R")
+    merged = cv2.merge([b_norm, g_norm, r_norm])
+
+    # Schritt 2b (Stage 2): Globales Luminanz-Tonemapping mit Hard-Clamps —
+    # schützt Highlights/Shadows ohne die Farbbalance aus Stage 1 anzutasten.
+    merged = apply_luminance_tonemap(merged)
 
     # Schritt 3: Input Levels (Schwarz-/Weißpunkt)
     corrected = apply_input_levels(merged, black_point, white_point)

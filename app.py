@@ -7,6 +7,7 @@ Auto-Korrektur per Histogramm-Analyse, Download der konvertierten Positive.
 
 import io
 import base64
+import logging
 import time
 import uuid
 import tempfile
@@ -17,6 +18,16 @@ import cv2
 import numpy as np
 from flask import Flask, request, jsonify, send_file, render_template
 from PIL import Image
+
+# Diagnose-Logging der Pipeline (insbesondere normalize_channel) auf stderr.
+# `force=True` überschreibt die Default-Konfiguration von Gunicorn, damit auch
+# INFO-Level-Logs in Render's Log-Dashboard sichtbar sind.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    force=True,
+)
+logging.getLogger("invert_negatives").setLevel(logging.INFO)
 
 try:
     from pillow_heif import register_heif_opener
@@ -429,35 +440,59 @@ def api_process():
     with _cache_lock:
         entry = _image_cache.get(session_id)
 
-    if not entry:
-        # Fallback: Datei direkt aus Request
-        if "file" not in request.files:
-            return jsonify({"error": "Keine Datei und keine Session"}), 400
-        file = request.files["file"]
-        try:
+    # ---------- Bild laden -----------------------------------------------
+    try:
+        if not entry:
+            # Fallback: Datei direkt aus Request
+            if "file" not in request.files:
+                return jsonify({"error": "Keine Datei und keine Session"}), 400
+            file = request.files["file"]
             img, filename = load_upload(file)
-        except ValueError as e:
-            return jsonify({"error": str(e)}), 400
-    else:
-        # Full-Res aus gecachten komprimierten Bytes rekonstruieren
-        raw_bytes = entry["raw_bytes"]
-        suffix = entry["suffix"]
-        filename = entry["filename"]
-        if suffix in {".heic", ".heif"}:
-            pil_img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
-            img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
         else:
-            arr = np.frombuffer(raw_bytes, dtype=np.uint8)
-            img = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
-            if img is None:
-                return jsonify({"error": "Bild konnte nicht dekodiert werden"}), 500
-            if len(img.shape) == 2:
-                img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            # Full-Res aus gecachten komprimierten Bytes rekonstruieren
+            raw_bytes = entry["raw_bytes"]
+            suffix = entry["suffix"]
+            filename = entry["filename"]
+            if suffix in {".heic", ".heif"}:
+                pil_img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+                img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+            else:
+                arr = np.frombuffer(raw_bytes, dtype=np.uint8)
+                img = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
+                if img is None:
+                    return jsonify({"error": "Bild konnte nicht dekodiert werden"}), 500
+                if len(img.shape) == 2:
+                    img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+                if img.shape[2] == 4:
+                    img = img[:, :, :3]
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": f"Fehler beim Laden: {type(e).__name__}: {e}"}), 500
 
-    params = _parse_params(request.form)
-    result = process_negative(img, **params)
+    # ---------- Verarbeiten + Encodieren ---------------------------------
+    try:
+        params = _parse_params(request.form)
+        result = process_negative(img, **params)
+        # Quell-Array sofort freigeben — bei großen HEIC kritisch
+        del img
 
-    data, mimetype, ext = encode_image(result, output_format)
+        data, mimetype, ext = encode_image(result, output_format)
+        del result
+    except MemoryError:
+        return jsonify({
+            "error": "Speicher reicht nicht — Bild zu groß für den Server "
+                     "(Render Free Tier hat 512 MB RAM). Bitte vorher per "
+                     "Foto-App auf z. B. 4000 px Längsseite verkleinern."
+        }), 507
+    except Exception as e:
+        # Vollen Stacktrace ins Server-Log, kompakte Meldung an den Client
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "error": f"{type(e).__name__}: {e}"
+        }), 500
+
     stem = Path(filename).stem
     out_name = f"{stem}_positive{ext}"
 

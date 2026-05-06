@@ -50,7 +50,7 @@ ALLOWED_EXTENSIONS = {".tif", ".tiff", ".png", ".jpg", ".jpeg", ".heic", ".heif"
 # Full-Res Bilder werden als komprimierte Bytes gespeichert (viel kleiner als numpy-Array)
 _image_cache: dict[str, dict] = {}
 _cache_lock = threading.Lock()
-CACHE_MAX_AGE = 300  # 5 Minuten
+CACHE_MAX_AGE = 1800  # 30 Minuten — großzügig genug für Feinjustierung mehrerer Bilder
 CACHE_MAX_BYTES = 200 * 1024 * 1024  # 200 MB Gesamt-Cache-Limit
 THUMB_MAX_DIM = 600  # Thumbnail für schnelle Vorschau
 
@@ -439,6 +439,9 @@ def api_process():
 
     with _cache_lock:
         entry = _image_cache.get(session_id)
+        if entry:
+            # TTL refreshen, damit auch lange Editier-Sessions nicht ablaufen
+            entry["ts"] = time.time()
 
     # ---------- Bild laden -----------------------------------------------
     try:

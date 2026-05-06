@@ -1111,6 +1111,34 @@
         }
 
         // --- Full-res processing + download ---
+
+        // Baut FormData fuer /api/process. Mit useFile=true wird die Original-
+        // Datei aus dem Browser-Blob mitgeschickt — Fallback, wenn die Server-
+        // Session abgelaufen ist (Cache-TTL ueberschritten oder verdraengt).
+        function buildProcessFormData(entry, useFile = false) {
+            const fd = new FormData();
+            if (useFile || !entry.session_id) {
+                fd.append('file', entry.file);
+            } else {
+                fd.append('session_id', entry.session_id);
+            }
+            Object.entries(sliders).forEach(([key, s]) => fd.append(key, s.el.value));
+            fd.append('format', formatSelect.value);
+            fd.append('crop_x1', entry.crop.x1);
+            fd.append('crop_y1', entry.crop.y1);
+            fd.append('crop_x2', entry.crop.x2);
+            fd.append('crop_y2', entry.crop.y2);
+            fd.append('rotation', entry.rotation);
+            return fd;
+        }
+
+        async function readErrorMessage(resp) {
+            try {
+                const j = await resp.json();
+                return (j && j.error) ? j.error : '';
+            } catch { return ''; }
+        }
+
         btnProcess.addEventListener('click', async () => {
             if (uploadedFiles.length === 0) return;
 
@@ -1122,32 +1150,27 @@
                 const entry = uploadedFiles[i];
                 progressFill.style.width = ((i / uploadedFiles.length) * 100) + '%';
 
-                const formData = new FormData();
-                if (entry.session_id) {
-                    formData.append('session_id', entry.session_id);
-                } else {
-                    formData.append('file', entry.file);
-                }
-                Object.entries(sliders).forEach(([key, s]) => {
-                    formData.append(key, s.el.value);
-                });
-                formData.append('format', formatSelect.value);
-                formData.append('crop_x1', entry.crop.x1);
-                formData.append('crop_y1', entry.crop.y1);
-                formData.append('crop_x2', entry.crop.x2);
-                formData.append('crop_y2', entry.crop.y2);
-                formData.append('rotation', entry.rotation);
-
                 try {
-                    const resp = await fetch('/api/process', { method: 'POST', body: formData });
+                    // 1. Versuch: per Session-ID (schnell, falls noch im Cache)
+                    let resp = await fetch('/api/process', {
+                        method: 'POST',
+                        body: buildProcessFormData(entry, false),
+                    });
+
+                    // Session abgelaufen? → automatisch erneut hochladen.
+                    if (!resp.ok && (resp.status === 400 || resp.status === 404)) {
+                        const msg = await readErrorMessage(resp.clone());
+                        if (/Session|Keine Datei/i.test(msg)) {
+                            resp = await fetch('/api/process', {
+                                method: 'POST',
+                                body: buildProcessFormData(entry, true),
+                            });
+                        }
+                    }
+
                     if (!resp.ok) {
-                        // Versuche, die Server-Fehlermeldung zu lesen (JSON)
-                        let msg = 'Verarbeitung fehlgeschlagen';
-                        try {
-                            const j = await resp.json();
-                            if (j && j.error) msg = j.error;
-                        } catch {}
-                        throw new Error(msg);
+                        const msg = await readErrorMessage(resp);
+                        throw new Error(msg || 'Verarbeitung fehlgeschlagen');
                     }
                     const blob = await resp.blob();
                     entry.resultUrl = URL.createObjectURL(blob);

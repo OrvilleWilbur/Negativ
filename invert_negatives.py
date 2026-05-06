@@ -311,6 +311,27 @@ def apply_shadow_highlight(
     return result.astype(img.dtype)
 
 
+def apply_rotation(img: np.ndarray, rotation: int) -> np.ndarray:
+    """Rotiert das Bild im Uhrzeigersinn um ``rotation * 90``°.
+
+    Args:
+        img: Eingabebild.
+        rotation: Anzahl der 90°-Schritte im Uhrzeigersinn (0–3 oder beliebig;
+            wird modulo 4 genommen).
+
+    Returns:
+        Rotiertes Bild. Bei ``rotation == 0`` wird das Original zurückgegeben.
+    """
+    rotation = int(rotation) % 4
+    if rotation == 0:
+        return img
+    if rotation == 1:
+        return cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+    if rotation == 2:
+        return cv2.rotate(img, cv2.ROTATE_180)
+    return cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+
 def apply_crop(
     img: np.ndarray,
     x1: float,
@@ -366,10 +387,12 @@ def process_negative(
     crop_y1: float = 0.0,
     crop_x2: float = 1.0,
     crop_y2: float = 1.0,
+    rotation: int = 0,
 ) -> np.ndarray:
     """Vollständige Verarbeitungspipeline für ein einzelnes Farbnegativ.
 
-    0. Cropping (vor allen Farbberechnungen, damit Histogramm nur den Ausschnitt sieht)
+    0a. Rotation (vor Crop, damit Crop-Koordinaten zur sichtbaren Orientierung passen)
+    0b. Cropping (vor allen Farbberechnungen, damit Histogramm nur den Ausschnitt sieht)
     1. Invertierung
     2. Kanalgetrennte Histogrammnormalisierung (Orangemaske-Neutralisierung)
     3. Input Levels (Schwarz-/Weißpunkt)
@@ -395,11 +418,15 @@ def process_negative(
         shadows: Schatten anheben/abdunkeln (-100 bis +100).
         highlights: Highlights komprimieren/aufhellen (-100 bis +100).
         crop_x1, crop_y1, crop_x2, crop_y2: Crop-Bereich als Anteile (0.0-1.0).
+        rotation: Anzahl 90°-Drehungen im Uhrzeigersinn (0–3).
 
     Returns:
         Verarbeitetes Positivbild.
     """
-    # Schritt 0: Cropping
+    # Schritt 0a: Rotation (vor Crop)
+    img = apply_rotation(img, rotation)
+
+    # Schritt 0b: Cropping (Koordinaten beziehen sich auf das gedrehte Bild)
     img = apply_crop(img, crop_x1, crop_y1, crop_x2, crop_y2)
 
     # Schritt 1: Invertierung

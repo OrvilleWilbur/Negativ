@@ -774,6 +774,7 @@
                 <button class="btn btn-secondary" id="btn-copy-params" title="Parameter kopieren">Kopieren</button>
                 <button class="btn btn-secondary" id="btn-paste-params" title="Parameter einf&uuml;gen">Einf&uuml;gen</button>
                 <button class="btn btn-secondary" id="btn-crop" disabled title="Bildausschnitt w&auml;hlen">Zuschneiden</button>
+                <button class="btn btn-secondary" id="btn-rotate" disabled title="Im Uhrzeigersinn 90&deg; drehen">&#x21BB; 90&deg;</button>
             </div>
 
             <!-- Crop controls (only visible in crop mode) -->
@@ -858,6 +859,7 @@
         const cropControls = document.getElementById('crop-controls');
         const btnCrop = document.getElementById('btn-crop');
         const btnCropReset = document.getElementById('btn-crop-reset');
+        const btnRotate = document.getElementById('btn-rotate');
         const origImgWrap = document.getElementById('orig-img-wrap');
         let cropMode = false;
         let cropAspect = 0;     // 0 = frei, sonst Verhältnis breite/höhe
@@ -923,8 +925,10 @@
                     session_id: null,
                     filename: file.name,
                     original_preview: null,
+                    rotatedUrl: null,                    // Object-URL des rotierten Originals
                     resultUrl: null,
                     crop: { x1: 0, y1: 0, x2: 1, y2: 1 },
+                    rotation: 0,                          // 0–3 (× 90&deg; im Uhrzeigersinn)
                 };
                 uploadedFiles.push(entry);
 
@@ -951,6 +955,7 @@
             btnClear.disabled = uploadedFiles.length === 0;
             btnAuto.disabled = uploadedFiles.length === 0;
             btnCrop.disabled = uploadedFiles.length === 0;
+            btnRotate.disabled = uploadedFiles.length === 0;
         }
 
         // --- Select file ---
@@ -959,11 +964,7 @@
             const entry = uploadedFiles[index];
             if (!entry) return;
 
-            if (entry.original_preview) {
-                previewOriginal.src = entry.original_preview;
-            } else {
-                previewOriginal.src = URL.createObjectURL(entry.file);
-            }
+            updateOriginalPreviewSrc(entry);
             previewOriginal.style.display = 'block';
             placeholderOrig.style.display = 'none';
 
@@ -971,6 +972,34 @@
             requestPreview();
             // Crop-Overlay auf neu gew&auml;hltes Bild aktualisieren
             requestAnimationFrame(() => { syncCropOverlay(); renderCropRect(); });
+        }
+
+        // Setzt previewOriginal.src passend zur Rotation des Eintrags.
+        // Bei rotation == 0 reicht das beim Upload mitgelieferte Base64-Preview.
+        // Bei rotation > 0 wird das rotierte Thumbnail vom Backend geholt.
+        async function updateOriginalPreviewSrc(entry) {
+            if (entry.rotation === 0) {
+                if (entry.rotatedUrl) {
+                    URL.revokeObjectURL(entry.rotatedUrl);
+                    entry.rotatedUrl = null;
+                }
+                if (entry.original_preview) previewOriginal.src = entry.original_preview;
+                else if (entry.file) previewOriginal.src = URL.createObjectURL(entry.file);
+                return;
+            }
+            // Rotation aktiv -> Backend liefert das rotierte Original
+            if (!entry.session_id) return;
+            const fd = new FormData();
+            fd.append('session_id', entry.session_id);
+            fd.append('rotation', entry.rotation);
+            try {
+                const resp = await fetch('/api/original', { method: 'POST', body: fd });
+                if (!resp.ok) return;
+                const blob = await resp.blob();
+                if (entry.rotatedUrl) URL.revokeObjectURL(entry.rotatedUrl);
+                entry.rotatedUrl = URL.createObjectURL(blob);
+                previewOriginal.src = entry.rotatedUrl;
+            } catch {}
         }
 
         // --- Realtime preview (debounced) ---
@@ -995,6 +1024,7 @@
                 formData.append('crop_y1', entry.crop.y1);
                 formData.append('crop_x2', entry.crop.x2);
                 formData.append('crop_y2', entry.crop.y2);
+                formData.append('rotation', entry.rotation);
 
                 fetch('/api/preview', { method: 'POST', body: formData, signal: previewAbort.signal })
                     .then(resp => {
@@ -1028,6 +1058,7 @@
             formData.append('crop_y1', entry.crop.y1);
             formData.append('crop_x2', entry.crop.x2);
             formData.append('crop_y2', entry.crop.y2);
+            formData.append('rotation', entry.rotation);
 
             try {
                 const resp = await fetch('/api/analyze', { method: 'POST', body: formData });
@@ -1105,6 +1136,7 @@
                 formData.append('crop_y1', entry.crop.y1);
                 formData.append('crop_x2', entry.crop.x2);
                 formData.append('crop_y2', entry.crop.y2);
+                formData.append('rotation', entry.rotation);
 
                 try {
                     const resp = await fetch('/api/process', { method: 'POST', body: formData });
@@ -1130,7 +1162,10 @@
 
         // --- Clear ---
         btnClear.addEventListener('click', () => {
-            uploadedFiles.forEach(e => { if (e.resultUrl) URL.revokeObjectURL(e.resultUrl); });
+            uploadedFiles.forEach(e => {
+                if (e.resultUrl) URL.revokeObjectURL(e.resultUrl);
+                if (e.rotatedUrl) URL.revokeObjectURL(e.rotatedUrl);
+            });
             uploadedFiles = [];
             activeIndex = -1;
             renderFileList();
@@ -1138,6 +1173,7 @@
             btnClear.disabled = true;
             btnAuto.disabled = true;
             btnCrop.disabled = true;
+            btnRotate.disabled = true;
             previewOriginal.style.display = 'none';
             previewResult.style.display = 'none';
             placeholderOrig.style.display = 'flex';
@@ -1478,6 +1514,26 @@
         // Handles
         cropRect.querySelectorAll('.crop-handle').forEach(h => {
             h.addEventListener('mousedown', e => startDrag(e, h.dataset.mode));
+        });
+
+        // --- Rotation ---
+        // Klick rotiert das aktive Bild im Uhrzeigersinn um 90&deg;.
+        // Crop wird zur&uuml;ckgesetzt, weil das Koordinatensystem (B&times;H) tauscht.
+        // Original-Preview wird vom Backend in der neuen Orientierung neu geladen,
+        // damit das Crop-Overlay sauber dar&uuml;ber liegt.
+        btnRotate.addEventListener('click', async () => {
+            if (activeIndex < 0) return;
+            const entry = uploadedFiles[activeIndex];
+            if (!entry || !entry.session_id) return;
+
+            entry.rotation = (entry.rotation + 1) % 4;
+            entry.crop = { x1: 0, y1: 0, x2: 1, y2: 1 };
+
+            btnRotate.disabled = true;
+            await updateOriginalPreviewSrc(entry);
+            renderCropRect();
+            requestPreview();
+            btnRotate.disabled = false;
         });
 
         // --- Server Status Polling ---

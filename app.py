@@ -25,7 +25,7 @@ try:
 except ImportError:
     HEIC_SUPPORTED = False
 
-from invert_negatives import process_negative, apply_crop
+from invert_negatives import process_negative, apply_crop, apply_rotation
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB
@@ -153,6 +153,7 @@ def _parse_params(form) -> dict:
         "crop_y1": float(form.get("crop_y1", 0.0)),
         "crop_x2": float(form.get("crop_x2", 1.0)),
         "crop_y2": float(form.get("crop_y2", 1.0)),
+        "rotation": int(form.get("rotation", 0)),
     }
 
 
@@ -362,6 +363,32 @@ def api_upload():
     })
 
 
+@app.route("/api/original", methods=["POST"])
+def api_original():
+    """Liefert das Original-Thumbnail in der angefragten Orientierung.
+
+    Wird vom Frontend nach jedem Rotations-Klick aufgerufen, damit das im
+    Browser angezeigte Original-Bild zur gewünschten Drehung passt — das
+    Crop-Overlay arbeitet so trivial in den richtigen Koordinaten.
+    """
+    session_id = request.form.get("session_id", "")
+    rotation = int(request.form.get("rotation", 0))
+
+    with _cache_lock:
+        entry = _image_cache.get(session_id)
+        if entry:
+            entry["ts"] = time.time()
+
+    if not entry:
+        return jsonify({"error": "Session abgelaufen"}), 404
+
+    thumb = apply_rotation(entry["thumb"], rotation)
+    if thumb.dtype == np.uint16:
+        thumb = (thumb / 256).astype(np.uint8)
+    _, buf = cv2.imencode(".jpg", thumb, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    return send_file(io.BytesIO(buf.tobytes()), mimetype="image/jpeg")
+
+
 @app.route("/api/preview", methods=["POST"])
 def api_preview():
     """Echtzeit-Vorschau: Verarbeitet das gecachte Thumbnail mit aktuellen Parametern."""
@@ -398,7 +425,8 @@ def api_analyze():
     if not entry:
         return jsonify({"error": "Session abgelaufen"}), 404
 
-    # Crop berücksichtigen: Analyse nur auf dem ausgewählten Bildbereich
+    # Rotation + Crop berücksichtigen: Analyse exakt auf dem sichtbaren Ausschnitt
+    rotation = int(request.form.get("rotation", 0))
     crop_x1 = float(request.form.get("crop_x1", 0.0))
     crop_y1 = float(request.form.get("crop_y1", 0.0))
     crop_x2 = float(request.form.get("crop_x2", 1.0))
@@ -406,7 +434,8 @@ def api_analyze():
 
     # Analyse auf Thumbnail für Geschwindigkeit
     try:
-        thumb = apply_crop(entry["thumb"], crop_x1, crop_y1, crop_x2, crop_y2)
+        thumb = apply_rotation(entry["thumb"], rotation)
+        thumb = apply_crop(thumb, crop_x1, crop_y1, crop_x2, crop_y2)
         params = analyze_negative(thumb)
         return jsonify(params)
     except Exception as e:

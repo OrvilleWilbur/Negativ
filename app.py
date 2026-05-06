@@ -160,150 +160,139 @@ def _parse_params(form) -> dict:
 # Auto-Korrektur: Histogramm-basierte Analyse
 # ---------------------------------------------------------------------------
 
-def analyze_negative(img: np.ndarray) -> dict:
-    """Analysiert ein Farbnegativ und berechnet optimale Korrekturparameter.
+# Hard-Limits für die Auto-Korrektur — robust gegen asymmetrische Histogramme
+# (z. B. Schnee- oder Himmel-dominierte Motive).
+_AUTO_BP_MAX = 5.0    # Schwarzpunkt darf 5 % nie überschreiten
+_AUTO_WP_MIN = 80.0   # Weißpunkt darf 80 % nie unterschreiten
 
-    Heuristik:
-    1. Invertiere das Bild.
-    2. Berechne kanalgetrennte Histogramme.
-    3. Bestimme Schwarz-/Weißpunkte aus Perzentilen.
-    4. Leite Gamma-Korrektur pro Kanal aus Medianverschiebung ab.
-    5. Schätze Temperatur/Tönung aus Kanal-Balance.
-    6. Berechne Kontrast/Schatten/Highlights aus Verteilung.
+
+def analyze_negative(img: np.ndarray) -> dict:
+    """Berechnet robuste Auto-Korrektur-Parameter für ein Farbnegativ.
+
+    Architektur:
+
+    1. **Schwarz-/Weißpunkt** strikt perzentilbasiert (0.5 % / 99.5 %) mit
+       harten Clamps: BP ∈ [0, 5] %, WP ∈ [80, 100] %. Verhindert, dass
+       Motive mit dominanten hellen Flächen (Schnee, Himmel) extreme
+       Schwarzpunkte erzeugen und so die Tiefenzeichnung zerstören.
+
+    2. **Median-Luminanz** (Rec. 709 gewichtet) als Helligkeitsmetrik für
+       Auto-Exposure und Gamma. Outlier-resistent gegenüber großflächigen
+       einfarbigen Bereichen — anders als der arithmetische Mittelwert.
+
+    3. **Parameter-Neutralität**: Schatten, Highlights, Kontrast und
+       Helligkeit werden nicht algorithmisch gesetzt, sondern auf 0
+       (Neutralwert) zurückgegeben. Die Basiskontrastierung erfolgt
+       ausschließlich über Schwarzpunkt, Weißpunkt und globales Gamma.
+       Die chromatischen Korrekturen (RGB-Gamma, Temperatur, Tönung)
+       bleiben als separate Berechnung erhalten.
+
+    Args:
+        img: Negativ-Scan (BGR, uint8 oder uint16). Wenn Crop aktiv ist,
+            sollte der Aufrufer das Bild bereits zugeschnitten übergeben,
+            damit nur der gewählte Ausschnitt analysiert wird.
 
     Returns:
-        Dict mit allen Slider-Parametern.
+        Dict mit allen Slider-Parametern als JSON-serialisierbare Strings.
     """
     max_val = np.iinfo(img.dtype).max
 
-    # Schritt 1: Invertieren
-    inverted = max_val - img
-
-    # Auf float normalisieren [0, 1]
-    inv_f = inverted.astype(np.float64) / max_val
+    # Invertieren und auf [0, 1] normalisieren
+    inv_f = (max_val - img).astype(np.float64) / max_val
     b, g, r = cv2.split(inv_f)
 
-    # Schritt 2: Perzentile pro Kanal
-    def channel_stats(ch):
-        p01 = np.percentile(ch, 0.5)
-        p99 = np.percentile(ch, 99.5)
-        median = np.median(ch)
-        std = np.std(ch)
-        return p01, p99, median, std
+    # ------------------------------------------------------------------
+    # 1. Schwarz-/Weißpunkt aus Perzentilen, mit harten Clamps
+    # ------------------------------------------------------------------
+    r_p01, r_p99 = np.percentile(r, [0.5, 99.5])
+    g_p01, g_p99 = np.percentile(g, [0.5, 99.5])
+    b_p01, b_p99 = np.percentile(b, [0.5, 99.5])
 
-    r_p01, r_p99, r_med, r_std = channel_stats(r)
-    g_p01, g_p99, g_med, g_std = channel_stats(g)
-    b_p01, b_p99, b_med, b_std = channel_stats(b)
+    avg_p01 = (r_p01 + g_p01 + b_p01) / 3.0
+    avg_p99 = (r_p99 + g_p99 + b_p99) / 3.0
 
-    # Schritt 3: Clipping – aggressiveres Clipping wenn hohe Streuung
-    avg_std = (r_std + g_std + b_std) / 3
-    clip = round(min(max(avg_std * 2.0, 0.1), 1.5), 2)
+    black_point = float(np.clip(avg_p01 * 100.0, 0.0, _AUTO_BP_MAX))
+    white_point = float(np.clip(avg_p99 * 100.0, _AUTO_WP_MIN, 100.0))
 
-    # Schritt 4: Schwarzpunkt / Weißpunkt aus Perzentilen
-    avg_p01 = (r_p01 + g_p01 + b_p01) / 3
-    avg_p99 = (r_p99 + g_p99 + b_p99) / 3
-    black_point = round(max(avg_p01 * 100 - 1.0, 0), 1)
-    white_point = round(min(avg_p99 * 100 + 1.0, 100), 1)
+    # ------------------------------------------------------------------
+    # 2. Globales Gamma aus Median-Luminanz (Rec. 709)
+    # ------------------------------------------------------------------
+    luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    lum_median = float(np.median(luminance))
 
-    # Schritt 5: Globales Gamma aus Gesamthelligkeit
-    overall_median = (r_med + g_med + b_med) / 3
-    # Ziel-Median ~0.45 (leicht unter Mitte für natürliches Aussehen)
-    target_median = 0.45
-    if overall_median > 0.01:
-        global_gamma = round(
-            np.log(target_median) / np.log(max(overall_median, 0.01)),
-            2,
+    target_median = 0.45  # natürlich wirkende Mitteltöne
+    # apply_gamma rechnet pixel^(1/gamma). Damit median^(1/gamma) = target gilt:
+    #   gamma = log(median) / log(target)
+    # gamma > 1 hellt auf, < 1 dunkelt ab — passt zur Slider-Semantik.
+    if lum_median > 0.01 and target_median > 0.01:
+        global_gamma = float(
+            np.clip(np.log(max(lum_median, 0.01)) / np.log(target_median),
+                    0.5, 2.5)
         )
-        global_gamma = max(0.5, min(global_gamma, 2.5))
     else:
         global_gamma = 1.2
 
-    # Schritt 6: Kanal-Gamma für Orange-Mask-Kompensation
-    # Strategie: Alle 3 Kanäle zum gemeinsamen Ziel-Median bringen.
-    # Der Ziel-Median ist der Durchschnitt aller 3 Kanäle.
-    # Anwendung nur mit 50% Stärke um natürliche Farbunterschiede zu erhalten.
-    target_ch = (r_med + g_med + b_med) / 3
+    # ------------------------------------------------------------------
+    # 3. Chromatische Korrektur (unverändert: RGB-Gamma, Temperatur, Tönung)
+    #    Verwenden weiterhin Kanal-Mediane — robust gegen Outlier
+    # ------------------------------------------------------------------
+    r_med = float(np.median(r))
+    g_med = float(np.median(g))
+    b_med = float(np.median(b))
+
+    target_ch = (r_med + g_med + b_med) / 3.0
     if target_ch < 0.05:
         target_ch = 0.3
 
-    def calc_channel_gamma(ch_med, target):
-        """Berechne Gamma um ch_med Richtung target zu verschieben.
-
-        process_negative wendet gamma als pixel^(1/gamma) an.
-        Lösung von ch_med^(1/gamma) = target:
-          gamma = log(ch_med) / log(target)
-        """
+    def calc_channel_gamma(ch_med: float, target: float) -> float:
         if ch_med < 0.02 or target < 0.02:
             return 1.0
         raw = np.log(max(ch_med, 0.01)) / np.log(max(target, 0.01))
-        # 50% Stärke: nur halben Weg zum Ziel gehen
+        # 50 % Stärke — natürliche Farbabstufungen erhalten
         raw = 1.0 + (raw - 1.0) * 0.5
-        return round(max(0.7, min(raw, 1.6)), 2)
+        return float(np.clip(raw, 0.7, 1.6))
 
     gamma_r = calc_channel_gamma(r_med, target_ch)
     gamma_g = calc_channel_gamma(g_med, target_ch)
     gamma_b = calc_channel_gamma(b_med, target_ch)
 
-    # Normalisiere: Grün als Anker bei ~1.0
-    if gamma_g != 0:
-        gamma_r = round(gamma_r / gamma_g, 2)
-        gamma_b = round(gamma_b / gamma_g, 2)
+    # Grün als Anker normalisieren
+    if gamma_g > 0:
+        gamma_r = float(np.clip(gamma_r / gamma_g, 0.7, 1.6))
+        gamma_b = float(np.clip(gamma_b / gamma_g, 0.7, 1.6))
         gamma_g = 1.0
-    gamma_r = max(0.7, min(gamma_r, 1.6))
-    gamma_b = max(0.7, min(gamma_b, 1.6))
 
-    # Schritt 7: Temperatur – moderat, basierend auf R/B-Balance
+    # Temperatur aus R/B-Median-Verhältnis
     if r_med > 0.01 and b_med > 0.01:
-        rb_ratio = r_med / b_med
-        # rb_ratio < 1 = zu kalt → positive Temperatur (wärmer)
-        temperature = round(np.clip((1.0 - rb_ratio) * 60, -40, 60))
+        temperature = int(np.clip((1.0 - r_med / b_med) * 60.0, -40, 60))
     else:
         temperature = 30
 
-    # Tönung: moderat, G vs. Durchschnitt(R,B)
-    rb_avg = (r_med + b_med) / 2
+    # Tönung aus G vs. (R+B)/2
+    rb_avg = (r_med + b_med) / 2.0
     if rb_avg > 0.01:
-        gr_ratio = g_med / rb_avg
-        tint = round(np.clip((1.0 - gr_ratio) * 40, -40, 40))
+        tint = int(np.clip((1.0 - g_med / rb_avg) * 40.0, -40, 40))
     else:
         tint = 0
 
-    # Schritt 8: Kontrast aus Standardabweichung
-    avg_std_norm = avg_std * 4  # Normalisieren auf ~1
-    if avg_std_norm < 0.6:
-        contrast = round(min((0.6 - avg_std_norm) * 80, 50))
-    elif avg_std_norm > 1.0:
-        contrast = round(max((1.0 - avg_std_norm) * 40, -30))
-    else:
-        contrast = 0
-
-    # Schritt 9: Schatten/Highlights
-    # Schatten anheben wenn unteres Quartil sehr dunkel
-    lower_q = np.percentile(inv_f, 25)
-    shadows = round(np.clip((0.2 - lower_q) * 100, -30, 40))
-
-    # Highlights komprimieren wenn oberes Quartil sehr hell
-    upper_q = np.percentile(inv_f, 75)
-    highlights = round(np.clip((0.7 - upper_q) * 80, -40, 30))
-
-    # Helligkeit: leichte Anpassung basierend auf Gesamthelligkeit
-    brightness = round(np.clip((0.45 - overall_median) * 30, -20, 20))
-
-    # Alle Werte als Python-native Typen (JSON-serialisierbar)
+    # ------------------------------------------------------------------
+    # 4. Parameter-Neutralität: Schatten/Highlights/Kontrast/Helligkeit = 0
+    #    Basiskontrast erfolgt ausschließlich über BP/WP + Gamma.
+    # ------------------------------------------------------------------
     return {
-        "clip": str(float(clip)),
-        "gamma": str(float(global_gamma)),
-        "temperature": str(int(temperature)),
-        "tint": str(int(tint)),
-        "gamma_r": str(float(gamma_r)),
-        "gamma_g": str(float(gamma_g)),
-        "gamma_b": str(float(gamma_b)),
-        "black_point": str(float(black_point)),
-        "white_point": str(float(white_point)),
-        "brightness": str(int(brightness)),
-        "contrast": str(int(contrast)),
-        "shadows": str(int(shadows)),
-        "highlights": str(int(highlights)),
+        "clip":        "0.1",
+        "gamma":       str(round(global_gamma, 2)),
+        "temperature": str(temperature),
+        "tint":        str(tint),
+        "gamma_r":     str(round(gamma_r, 2)),
+        "gamma_g":     str(round(gamma_g, 2)),
+        "gamma_b":     str(round(gamma_b, 2)),
+        "black_point": str(round(black_point, 1)),
+        "white_point": str(round(white_point, 1)),
+        "brightness":  "0",
+        "contrast":    "0",
+        "shadows":     "0",
+        "highlights":  "0",
     }
 
 

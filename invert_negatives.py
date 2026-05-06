@@ -141,12 +141,24 @@ def normalize_channel(
         " [FALLBACK]" if fallback else "",
     )
 
-    # --- Lineare Spreizung auf [0, max_val] ----------------------------
-    result = channel.astype(np.float32)
-    result = (result - low) / (high - low) * max_val
-    np.clip(result, 0, max_val, out=result)
+    # --- LUT-basierte Spreizung: konstante Speicher-Footprint -----------
+    # Statt eine float32-Kopie des gesamten Bildes anzulegen (bei 12 MP ~48 MB
+    # pro Kanal), bauen wir eine kleine LUT mit max_val+1 Einträgen und
+    # mappen via numpy-Fancy-Indexing. uint8: 256 Einträge, uint16: 64 K.
+    return _build_linear_lut(low, high, max_val, channel.dtype)[channel]
 
-    return result.astype(channel.dtype)
+
+def _build_linear_lut(
+    low: float,
+    high: float,
+    max_val: int,
+    target_dtype: np.dtype,
+) -> np.ndarray:
+    """Erzeugt eine LUT für die affine Spreizung (x - low) / (high - low) * max."""
+    lut = np.arange(max_val + 1, dtype=np.float32)
+    lut = (lut - low) / (high - low) * max_val
+    np.clip(lut, 0, max_val, out=lut)
+    return lut.astype(target_dtype)
 
 
 def apply_luminance_tonemap(img: np.ndarray) -> np.ndarray:
@@ -212,15 +224,17 @@ def apply_luminance_tonemap(img: np.ndarray) -> np.ndarray:
         "[" + ", ".join(flags) + "]" if flags else "",
     )
 
-    # --- Affine Transformation symmetrisch auf alle Kanäle -------------
-    result = img.astype(np.float32)
-    result = (result - low) / (high - low) * max_val
-    np.clip(result, 0, max_val, out=result)
-    return result.astype(img.dtype)
+    # --- LUT-basierte affine Transformation, symmetrisch auf alle Kanäle
+    # Speicher-Footprint: max_val+1 Einträge statt voller BGR-float32-Kopie
+    # (bei 12 MP HEIC: 256 Bytes statt 144 MB).
+    return _build_linear_lut(low, high, max_val, img.dtype)[img]
 
 
 def apply_gamma(img: np.ndarray, gamma: float) -> np.ndarray:
-    """Wendet eine Gamma-Korrektur an.
+    """Wendet eine Gamma-Korrektur via LUT an.
+
+    Memory-effizient durch Lookup-Table statt vollständiger float32-Kopie.
+    Numerisch identisch zur Pixel-für-Pixel-Berechnung.
 
     Args:
         img: Eingabebild (uint8 oder uint16).
@@ -229,16 +243,20 @@ def apply_gamma(img: np.ndarray, gamma: float) -> np.ndarray:
     Returns:
         Gamma-korrigiertes Bild gleichen Typs.
     """
+    if gamma == 1.0:
+        return img
+
     max_val = np.iinfo(img.dtype).max
     inv_gamma = 1.0 / gamma
 
-    # Normalisieren → Gamma → Zurückskalieren
-    result = img.astype(np.float32) / max_val
-    np.power(result, inv_gamma, out=result)
-    result *= max_val
-    np.clip(result, 0, max_val, out=result)
+    # LUT bauen: pixel^(1/gamma) für alle möglichen Eingangswerte
+    lut = np.arange(max_val + 1, dtype=np.float32) / max_val
+    np.power(lut, inv_gamma, out=lut)
+    lut *= max_val
+    np.clip(lut, 0, max_val, out=lut)
+    lut = lut.astype(img.dtype)
 
-    return result.astype(img.dtype)
+    return lut[img]
 
 
 def apply_channel_gamma(
@@ -332,17 +350,14 @@ def apply_input_levels(
     if low >= high:
         return img
 
-    result = img.astype(np.float32)
-    result = (result - low) / (high - low) * max_val
-    np.clip(result, 0, max_val, out=result)
-
-    return result.astype(img.dtype)
+    # LUT-basierte affine Transformation, identisch zur ehemaligen Pixel-Math
+    return _build_linear_lut(low, high, max_val, img.dtype)[img]
 
 
 def apply_brightness_contrast(
     img: np.ndarray, brightness: float, contrast: float
 ) -> np.ndarray:
-    """Helligkeit und Kontrast anpassen.
+    """Helligkeit und Kontrast anpassen via LUT.
 
     Args:
         img: Eingabebild (uint8 oder uint16).
@@ -356,25 +371,23 @@ def apply_brightness_contrast(
         return img
 
     max_val = np.iinfo(img.dtype).max
-    result = img.astype(np.float32)
 
-    # Kontrast: Skalierung um den Mittelpunkt (max_val / 2)
-    # contrast -100..+100 → Faktor 0.0..3.0
+    # Kontrast: Skalierung um den Mittelpunkt
     if contrast >= 0:
         factor = 1.0 + contrast / 50.0   # 0 → 1.0, 100 → 3.0
     else:
         factor = 1.0 + contrast / 100.0  # -100 → 0.0, 0 → 1.0
-
     mid = max_val / 2.0
-    result = (result - mid) * factor + mid
 
-    # Helligkeit: Linearer Offset
-    # brightness -100..+100 → ±30% des Maximalwerts
+    # Helligkeit: linearer Offset (±30 % des Maximalwerts)
     offset = (brightness / 100.0) * max_val * 0.3
-    result += offset
 
-    np.clip(result, 0, max_val, out=result)
-    return result.astype(img.dtype)
+    # LUT bauen: ein affiner Pixel-Mapper deckt Brightness+Contrast ab
+    lut = np.arange(max_val + 1, dtype=np.float32)
+    lut = (lut - mid) * factor + mid + offset
+    np.clip(lut, 0, max_val, out=lut)
+    lut = lut.astype(img.dtype)
+    return lut[img]
 
 
 def apply_shadow_highlight(
@@ -398,24 +411,25 @@ def apply_shadow_highlight(
         return img
 
     max_val = np.iinfo(img.dtype).max
-    result = img.astype(np.float32) / max_val  # Normalisieren auf [0, 1]
 
-    # Schatten: Wirkt auf dunkle Bereiche (gewichtet mit (1-x)²)
+    # LUT auf normalisierter [0, 1]-Skala bauen, dann auf [0, max_val] skalieren
+    base = np.arange(max_val + 1, dtype=np.float32) / max_val
+    lut = base.copy()
+
     if shadows != 0.0:
-        shadow_strength = shadows / 100.0 * 0.4  # Maximal ±40% Anhebung
-        shadow_mask = (1.0 - result) ** 2  # Stärkste Wirkung bei Schwarz
-        result += shadow_mask * shadow_strength
+        shadow_strength = shadows / 100.0 * 0.4
+        shadow_mask = (1.0 - base) ** 2
+        lut += shadow_mask * shadow_strength
 
-    # Highlights: Wirkt auf helle Bereiche (gewichtet mit x²)
     if highlights != 0.0:
         highlight_strength = highlights / 100.0 * 0.4
-        highlight_mask = result ** 2  # Stärkste Wirkung bei Weiß
-        result += highlight_mask * highlight_strength
+        highlight_mask = base ** 2
+        lut += highlight_mask * highlight_strength
 
-    np.clip(result, 0.0, 1.0, out=result)
-    result *= max_val
-
-    return result.astype(img.dtype)
+    np.clip(lut, 0.0, 1.0, out=lut)
+    lut *= max_val
+    lut = lut.astype(img.dtype)
+    return lut[img]
 
 
 def apply_rotation(img: np.ndarray, rotation: int) -> np.ndarray:

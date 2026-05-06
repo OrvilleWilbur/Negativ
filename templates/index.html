@@ -1133,10 +1133,25 @@
         }
 
         async function readErrorMessage(resp) {
+            // 502/504 = Render-Worker abgest&uuml;rzt (typisch OOM bei gro&szlig;en Bildern)
+            if (resp.status === 502 || resp.status === 504) {
+                return `Server-Worker abgest&uuml;rzt (HTTP ${resp.status}) — `
+                     + 'meist Speicher zu knapp f&uuml;r das Bild. Versuche es nochmal '
+                     + 'oder lade das Bild kleiner hoch.';
+            }
             try {
-                const j = await resp.json();
-                return (j && j.error) ? j.error : '';
-            } catch { return ''; }
+                // Versuche zuerst JSON
+                const text = await resp.text();
+                try {
+                    const j = JSON.parse(text);
+                    if (j && j.error) return j.error;
+                } catch {}
+                // Kein JSON → Status + erste Zeile des Bodys zeigen
+                const firstLine = text.split('\n').find(l => l.trim()) || '';
+                return `HTTP ${resp.status}: ${firstLine.substring(0, 120) || 'unbekannter Fehler'}`;
+            } catch {
+                return `HTTP ${resp.status} (keine Antwort lesbar)`;
+            }
         }
 
         btnProcess.addEventListener('click', async () => {

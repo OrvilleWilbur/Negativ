@@ -1174,6 +1174,17 @@
                     }
                     const blob = await resp.blob();
                     entry.resultUrl = URL.createObjectURL(blob);
+
+                    // Save-Dialog automatisch ausl&ouml;sen
+                    const ext = formatSelect.value === 'jpeg' ? 'jpg'
+                              : formatSelect.value === 'tiff' ? 'tif' : 'png';
+                    const downloadName = entry.filename.replace(/\.[^.]+$/, '') + '_positive.' + ext;
+                    const a = document.createElement('a');
+                    a.href = entry.resultUrl;
+                    a.download = downloadName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
                 } catch (err) {
                     showToast(entry.filename + ': ' + err.message);
                 }

@@ -44,6 +44,8 @@ TIFF inputs are saved as TIFF (preserving 16-bit depth), everything else is save
 
 ## Web App
 
+**Live:** https://negativ.onrender.com/
+
 A Flask web interface with drag & drop upload, live preview, adjustable sliders for clipping/gamma, and output format selection (PNG, TIFF, JPEG).
 
 ```bash

@@ -311,6 +311,42 @@ def apply_shadow_highlight(
     return result.astype(img.dtype)
 
 
+def apply_crop(
+    img: np.ndarray,
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+) -> np.ndarray:
+    """Schneidet das Bild auf einen Rechteck-Bereich zu.
+
+    Koordinaten als Bruchteil der Bildgröße (0.0 - 1.0). Der Crop wird VOR
+    der Histogramm-Normalisierung angewendet, damit die Orangemaske nur auf
+    dem gewählten Bildausschnitt analysiert wird (z. B. ohne Filmrand).
+
+    Args:
+        img: Eingabebild.
+        x1: Linke Kante als Anteil (0.0 = links, 1.0 = rechts).
+        y1: Obere Kante als Anteil.
+        x2: Rechte Kante als Anteil.
+        y2: Untere Kante als Anteil.
+
+    Returns:
+        Zugeschnittenes Bild (Original-Referenz wenn kein Crop nötig).
+    """
+    # Kein Crop nötig
+    if x1 <= 0.0 and y1 <= 0.0 and x2 >= 1.0 and y2 >= 1.0:
+        return img
+
+    h, w = img.shape[:2]
+    x1_p = max(0, min(w - 1, int(round(x1 * w))))
+    y1_p = max(0, min(h - 1, int(round(y1 * h))))
+    x2_p = max(x1_p + 1, min(w, int(round(x2 * w))))
+    y2_p = max(y1_p + 1, min(h, int(round(y2 * h))))
+
+    return img[y1_p:y2_p, x1_p:x2_p]
+
+
 def process_negative(
     img: np.ndarray,
     clip_percent: float,
@@ -326,9 +362,14 @@ def process_negative(
     contrast: float = 0.0,
     shadows: float = 0.0,
     highlights: float = 0.0,
+    crop_x1: float = 0.0,
+    crop_y1: float = 0.0,
+    crop_x2: float = 1.0,
+    crop_y2: float = 1.0,
 ) -> np.ndarray:
     """Vollständige Verarbeitungspipeline für ein einzelnes Farbnegativ.
 
+    0. Cropping (vor allen Farbberechnungen, damit Histogramm nur den Ausschnitt sieht)
     1. Invertierung
     2. Kanalgetrennte Histogrammnormalisierung (Orangemaske-Neutralisierung)
     3. Input Levels (Schwarz-/Weißpunkt)
@@ -353,10 +394,14 @@ def process_negative(
         contrast: Kontrast (-100 bis +100).
         shadows: Schatten anheben/abdunkeln (-100 bis +100).
         highlights: Highlights komprimieren/aufhellen (-100 bis +100).
+        crop_x1, crop_y1, crop_x2, crop_y2: Crop-Bereich als Anteile (0.0-1.0).
 
     Returns:
         Verarbeitetes Positivbild.
     """
+    # Schritt 0: Cropping
+    img = apply_crop(img, crop_x1, crop_y1, crop_x2, crop_y2)
+
     # Schritt 1: Invertierung
     inverted = invert(img)
 

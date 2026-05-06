@@ -25,7 +25,7 @@ try:
 except ImportError:
     HEIC_SUPPORTED = False
 
-from invert_negatives import process_negative
+from invert_negatives import process_negative, apply_crop
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB
@@ -149,6 +149,10 @@ def _parse_params(form) -> dict:
         "contrast": float(form.get("contrast", 0)),
         "shadows": float(form.get("shadows", 0)),
         "highlights": float(form.get("highlights", 0)),
+        "crop_x1": float(form.get("crop_x1", 0.0)),
+        "crop_y1": float(form.get("crop_y1", 0.0)),
+        "crop_x2": float(form.get("crop_x2", 1.0)),
+        "crop_y2": float(form.get("crop_y2", 1.0)),
     }
 
 
@@ -405,9 +409,16 @@ def api_analyze():
     if not entry:
         return jsonify({"error": "Session abgelaufen"}), 404
 
+    # Crop berücksichtigen: Analyse nur auf dem ausgewählten Bildbereich
+    crop_x1 = float(request.form.get("crop_x1", 0.0))
+    crop_y1 = float(request.form.get("crop_y1", 0.0))
+    crop_x2 = float(request.form.get("crop_x2", 1.0))
+    crop_y2 = float(request.form.get("crop_y2", 1.0))
+
     # Analyse auf Thumbnail für Geschwindigkeit
     try:
-        params = analyze_negative(entry["thumb"])
+        thumb = apply_crop(entry["thumb"], crop_x1, crop_y1, crop_x2, crop_y2)
+        params = analyze_negative(thumb)
         return jsonify(params)
     except Exception as e:
         return jsonify({"error": f"Analyse-Fehler: {str(e)}"}), 500

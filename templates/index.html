@@ -191,6 +191,95 @@
 
         .preview-spinner.visible { display: block; }
 
+        /* --- Crop Overlay --- */
+        .img-wrap { position: relative; }
+
+        .crop-overlay {
+            position: absolute;
+            pointer-events: none;
+            user-select: none;
+            display: none;
+        }
+
+        .crop-overlay.active {
+            display: block;
+            pointer-events: auto;
+        }
+
+        .crop-rect {
+            position: absolute;
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+            cursor: move;
+            box-sizing: border-box;
+        }
+
+        /* Drittel-Hilfslinien (Rule-of-Thirds) als d&uuml;nne Linien innen */
+        .crop-grid {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+        .crop-grid-line {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .crop-grid-line.v { top: 0; bottom: 0; width: 1px; }
+        .crop-grid-line.h { left: 0; right: 0; height: 1px; }
+        .crop-grid-line.v1 { left: 33.333%; }
+        .crop-grid-line.v2 { left: 66.666%; }
+        .crop-grid-line.h1 { top: 33.333%; }
+        .crop-grid-line.h2 { top: 66.666%; }
+
+        .crop-handle {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #fff;
+            border: 1px solid #333;
+            border-radius: 2px;
+            box-sizing: border-box;
+        }
+
+        .crop-handle.h-nw { top: -6px;  left: -6px;   cursor: nwse-resize; }
+        .crop-handle.h-ne { top: -6px;  right: -6px;  cursor: nesw-resize; }
+        .crop-handle.h-sw { bottom: -6px; left: -6px;  cursor: nesw-resize; }
+        .crop-handle.h-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+        .crop-handle.h-n  { top: -6px;  left: 50%; margin-left: -6px; cursor: ns-resize; }
+        .crop-handle.h-s  { bottom: -6px; left: 50%; margin-left: -6px; cursor: ns-resize; }
+        .crop-handle.h-w  { top: 50%; left: -6px;  margin-top: -6px; cursor: ew-resize; }
+        .crop-handle.h-e  { top: 50%; right: -6px; margin-top: -6px; cursor: ew-resize; }
+
+        /* Crop control row */
+        .crop-controls {
+            display: none;
+            gap: 4px;
+            align-items: center;
+            flex-wrap: wrap;
+            padding: 4px 0;
+        }
+
+        .crop-controls.visible { display: flex; }
+
+        .crop-controls .btn-aspect {
+            padding: 3px 8px;
+            font-size: 11px;
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .crop-controls .btn-aspect:hover { border-color: var(--accent); }
+        .crop-controls .btn-aspect.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+        .crop-controls .crop-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-right: 4px;
+        }
+
         .preview-placeholder {
             display: flex;
             align-items: center;
@@ -547,9 +636,27 @@
             <div class="preview-grid" id="preview-section">
                 <div class="preview-card">
                     <h3>Original (Negativ)</h3>
-                    <div class="img-wrap">
+                    <div class="img-wrap" id="orig-img-wrap">
                         <img id="preview-original" alt="Original" style="display:none;">
                         <div class="preview-placeholder" id="placeholder-orig">Kein Bild geladen</div>
+                        <div class="crop-overlay" id="crop-overlay">
+                            <div class="crop-rect" id="crop-rect">
+                                <div class="crop-grid">
+                                    <div class="crop-grid-line v v1"></div>
+                                    <div class="crop-grid-line v v2"></div>
+                                    <div class="crop-grid-line h h1"></div>
+                                    <div class="crop-grid-line h h2"></div>
+                                </div>
+                                <div class="crop-handle h-nw" data-mode="nw"></div>
+                                <div class="crop-handle h-n"  data-mode="n"></div>
+                                <div class="crop-handle h-ne" data-mode="ne"></div>
+                                <div class="crop-handle h-w"  data-mode="w"></div>
+                                <div class="crop-handle h-e"  data-mode="e"></div>
+                                <div class="crop-handle h-sw" data-mode="sw"></div>
+                                <div class="crop-handle h-s"  data-mode="s"></div>
+                                <div class="crop-handle h-se" data-mode="se"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="preview-card">
@@ -666,6 +773,20 @@
                 <button class="btn btn-secondary" id="btn-clear" disabled>Reset</button>
                 <button class="btn btn-secondary" id="btn-copy-params" title="Parameter kopieren">Kopieren</button>
                 <button class="btn btn-secondary" id="btn-paste-params" title="Parameter einf&uuml;gen">Einf&uuml;gen</button>
+                <button class="btn btn-secondary" id="btn-crop" disabled title="Bildausschnitt w&auml;hlen">Zuschneiden</button>
+            </div>
+
+            <!-- Crop controls (only visible in crop mode) -->
+            <div class="crop-controls" id="crop-controls">
+                <span class="crop-label">Format:</span>
+                <button class="btn-aspect active" data-aspect="0">Frei</button>
+                <button class="btn-aspect" data-aspect="1">1:1</button>
+                <button class="btn-aspect" data-aspect="1.5">3:2</button>
+                <button class="btn-aspect" data-aspect="0.667">2:3</button>
+                <button class="btn-aspect" data-aspect="1.333">4:3</button>
+                <button class="btn-aspect" data-aspect="0.75">3:4</button>
+                <button class="btn-aspect" data-aspect="1.778">16:9</button>
+                <button class="btn btn-secondary" id="btn-crop-reset" style="padding:3px 8px;font-size:11px;margin-left:auto;">Crop zur&uuml;cksetzen</button>
             </div>
 
             <!-- File list -->
@@ -731,6 +852,17 @@
         let previewAbort = null;
         let previewTimer = null;
 
+        // --- Crop State ---
+        const cropOverlay = document.getElementById('crop-overlay');
+        const cropRect = document.getElementById('crop-rect');
+        const cropControls = document.getElementById('crop-controls');
+        const btnCrop = document.getElementById('btn-crop');
+        const btnCropReset = document.getElementById('btn-crop-reset');
+        const origImgWrap = document.getElementById('orig-img-wrap');
+        let cropMode = false;
+        let cropAspect = 0;     // 0 = frei, sonst Verhältnis breite/höhe
+        const MIN_CROP_FRAC = 0.05;
+
         // --- Toast ---
         function showToast(msg) {
             toastEl.textContent = msg;
@@ -786,7 +918,14 @@
             for (const file of newFiles) {
                 if (uploadedFiles.some(u => u.file.name === file.name && u.file.size === file.size)) continue;
 
-                const entry = { file, session_id: null, filename: file.name, original_preview: null, resultUrl: null };
+                const entry = {
+                    file,
+                    session_id: null,
+                    filename: file.name,
+                    original_preview: null,
+                    resultUrl: null,
+                    crop: { x1: 0, y1: 0, x2: 1, y2: 1 },
+                };
                 uploadedFiles.push(entry);
 
                 const formData = new FormData();
@@ -811,6 +950,7 @@
             btnProcess.disabled = uploadedFiles.length === 0;
             btnClear.disabled = uploadedFiles.length === 0;
             btnAuto.disabled = uploadedFiles.length === 0;
+            btnCrop.disabled = uploadedFiles.length === 0;
         }
 
         // --- Select file ---
@@ -829,6 +969,8 @@
 
             renderFileList();
             requestPreview();
+            // Crop-Overlay auf neu gew&auml;hltes Bild aktualisieren
+            requestAnimationFrame(() => { syncCropOverlay(); renderCropRect(); });
         }
 
         // --- Realtime preview (debounced) ---
@@ -849,6 +991,10 @@
                 Object.entries(sliders).forEach(([key, s]) => {
                     formData.append(key, s.el.value);
                 });
+                formData.append('crop_x1', entry.crop.x1);
+                formData.append('crop_y1', entry.crop.y1);
+                formData.append('crop_x2', entry.crop.x2);
+                formData.append('crop_y2', entry.crop.y2);
 
                 fetch('/api/preview', { method: 'POST', body: formData, signal: previewAbort.signal })
                     .then(resp => {
@@ -878,6 +1024,10 @@
 
             const formData = new FormData();
             formData.append('session_id', entry.session_id);
+            formData.append('crop_x1', entry.crop.x1);
+            formData.append('crop_y1', entry.crop.y1);
+            formData.append('crop_x2', entry.crop.x2);
+            formData.append('crop_y2', entry.crop.y2);
 
             try {
                 const resp = await fetch('/api/analyze', { method: 'POST', body: formData });
@@ -951,6 +1101,10 @@
                     formData.append(key, s.el.value);
                 });
                 formData.append('format', formatSelect.value);
+                formData.append('crop_x1', entry.crop.x1);
+                formData.append('crop_y1', entry.crop.y1);
+                formData.append('crop_x2', entry.crop.x2);
+                formData.append('crop_y2', entry.crop.y2);
 
                 try {
                     const resp = await fetch('/api/process', { method: 'POST', body: formData });
@@ -983,10 +1137,18 @@
             btnProcess.disabled = true;
             btnClear.disabled = true;
             btnAuto.disabled = true;
+            btnCrop.disabled = true;
             previewOriginal.style.display = 'none';
             previewResult.style.display = 'none';
             placeholderOrig.style.display = 'flex';
             placeholderResult.style.display = 'flex';
+            // Crop-Mode beenden falls aktiv
+            cropOverlay.classList.remove('active');
+            cropControls.classList.remove('visible');
+            cropMode = false;
+            btnCrop.classList.add('btn-secondary');
+            btnCrop.classList.remove('btn-primary');
+            btnCrop.textContent = 'Zuschneiden';
         });
 
         // --- Copy / Paste ---
@@ -1090,6 +1252,233 @@
         });
 
         renderPresets();
+
+        // --- Crop Logic ---
+
+        // Overlay-Position an die tats&auml;chlich gerenderte Image-Box anpassen
+        // (object-fit: contain zentriert das Bild im Wrap, daher Abweichung).
+        function syncCropOverlay() {
+            if (!previewOriginal.naturalWidth || previewOriginal.style.display === 'none') {
+                cropOverlay.classList.remove('active');
+                return;
+            }
+            const wrapRect = origImgWrap.getBoundingClientRect();
+            const imgRect = previewOriginal.getBoundingClientRect();
+            cropOverlay.style.left   = (imgRect.left - wrapRect.left) + 'px';
+            cropOverlay.style.top    = (imgRect.top  - wrapRect.top)  + 'px';
+            cropOverlay.style.width  = imgRect.width  + 'px';
+            cropOverlay.style.height = imgRect.height + 'px';
+        }
+
+        // Aktuellen Crop in Pixel-Werte des Overlays &uuml;bersetzen
+        function renderCropRect() {
+            if (activeIndex < 0) return;
+            const c = uploadedFiles[activeIndex].crop;
+            cropRect.style.left   = (c.x1 * 100) + '%';
+            cropRect.style.top    = (c.y1 * 100) + '%';
+            cropRect.style.width  = ((c.x2 - c.x1) * 100) + '%';
+            cropRect.style.height = ((c.y2 - c.y1) * 100) + '%';
+        }
+
+        // Bei Bildwechsel oder Bildladen Overlay neu positionieren
+        previewOriginal.addEventListener('load', () => {
+            syncCropOverlay();
+            renderCropRect();
+        });
+        window.addEventListener('resize', () => {
+            syncCropOverlay();
+            renderCropRect();
+        });
+
+        // Crop-Mode toggle
+        btnCrop.addEventListener('click', () => {
+            cropMode = !cropMode;
+            if (cropMode) {
+                if (activeIndex < 0) { cropMode = false; return; }
+                syncCropOverlay();
+                renderCropRect();
+                cropOverlay.classList.add('active');
+                cropControls.classList.add('visible');
+                btnCrop.classList.remove('btn-secondary');
+                btnCrop.classList.add('btn-primary');
+                btnCrop.textContent = 'Fertig';
+            } else {
+                cropOverlay.classList.remove('active');
+                cropControls.classList.remove('visible');
+                btnCrop.classList.add('btn-secondary');
+                btnCrop.classList.remove('btn-primary');
+                btnCrop.textContent = 'Zuschneiden';
+            }
+        });
+
+        // Aspect-Ratio-Buttons
+        document.querySelectorAll('.btn-aspect').forEach(b => {
+            b.addEventListener('click', () => {
+                document.querySelectorAll('.btn-aspect').forEach(x => x.classList.remove('active'));
+                b.classList.add('active');
+                cropAspect = parseFloat(b.dataset.aspect);
+                if (cropAspect > 0 && activeIndex >= 0) {
+                    applyAspectRatioToCurrentCrop();
+                    renderCropRect();
+                    requestPreview();
+                }
+            });
+        });
+
+        // Crop zur&uuml;cksetzen
+        btnCropReset.addEventListener('click', () => {
+            if (activeIndex < 0) return;
+            uploadedFiles[activeIndex].crop = { x1: 0, y1: 0, x2: 1, y2: 1 };
+            renderCropRect();
+            requestPreview();
+        });
+
+        // Aspect-Ratio auf aktuellen Crop anwenden (zentriert um Mittelpunkt,
+        // benutzt das tats&auml;chliche Bildverh&auml;ltnis, damit das Crop-Rechteck
+        // im Pixel-Raum die richtige Form hat).
+        function applyAspectRatioToCurrentCrop() {
+            const entry = uploadedFiles[activeIndex];
+            if (!entry || cropAspect <= 0) return;
+            const imgW = previewOriginal.naturalWidth;
+            const imgH = previewOriginal.naturalHeight;
+            if (!imgW || !imgH) return;
+
+            const c = entry.crop;
+            const cx = (c.x1 + c.x2) / 2;
+            const cy = (c.y1 + c.y2) / 2;
+            const curW = c.x2 - c.x1;
+            const curH = c.y2 - c.y1;
+
+            // cropAspect = w/h im Pixel-Raum. In Bildanteilen:
+            // (frac_w * imgW) / (frac_h * imgH) = cropAspect
+            // => frac_w = cropAspect * frac_h * imgH / imgW
+            // Wir nehmen die kleinere der beiden bisherigen Dimensionen als Anker.
+            const aspectFrac = cropAspect * imgH / imgW;  // frac_w / frac_h
+            let newW, newH;
+            if (curW / curH > aspectFrac) {
+                // Zu breit -> H&ouml;he diktiert
+                newH = curH;
+                newW = newH * aspectFrac;
+            } else {
+                newW = curW;
+                newH = newW / aspectFrac;
+            }
+            // In [0,1] halten und um Mittelpunkt zentrieren
+            newW = Math.min(newW, 1);
+            newH = Math.min(newH, 1);
+            let x1 = cx - newW / 2;
+            let y1 = cy - newH / 2;
+            let x2 = x1 + newW;
+            let y2 = y1 + newH;
+            // R&auml;nder einfangen
+            if (x1 < 0) { x2 -= x1; x1 = 0; }
+            if (y1 < 0) { y2 -= y1; y1 = 0; }
+            if (x2 > 1) { x1 -= (x2 - 1); x2 = 1; }
+            if (y2 > 1) { y1 -= (y2 - 1); y2 = 1; }
+            entry.crop = { x1: Math.max(0,x1), y1: Math.max(0,y1), x2: Math.min(1,x2), y2: Math.min(1,y2) };
+        }
+
+        // --- Drag / Resize Interaktion ---
+        let dragMode = null;
+        let dragStartFrac = null;
+        let dragStartCrop = null;
+
+        function getMouseFraction(e) {
+            const rect = cropOverlay.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
+        }
+
+        function startDrag(e, mode) {
+            if (!cropMode || activeIndex < 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            dragMode = mode;
+            dragStartFrac = getMouseFraction(e);
+            dragStartCrop = { ...uploadedFiles[activeIndex].crop };
+            document.addEventListener('mousemove', onDragMove);
+            document.addEventListener('mouseup', onDragEnd);
+        }
+
+        function onDragMove(e) {
+            if (!dragMode) return;
+            const pos = getMouseFraction(e);
+            const dx = pos.x - dragStartFrac.x;
+            const dy = pos.y - dragStartFrac.y;
+            let { x1, y1, x2, y2 } = dragStartCrop;
+
+            if (dragMode === 'move') {
+                const w = x2 - x1, h = y2 - y1;
+                x1 = Math.max(0, Math.min(1 - w, x1 + dx));
+                y1 = Math.max(0, Math.min(1 - h, y1 + dy));
+                x2 = x1 + w;
+                y2 = y1 + h;
+            } else {
+                if (dragMode.includes('w')) x1 = Math.max(0, Math.min(x2 - MIN_CROP_FRAC, x1 + dx));
+                if (dragMode.includes('e')) x2 = Math.min(1, Math.max(x1 + MIN_CROP_FRAC, x2 + dx));
+                if (dragMode.includes('n')) y1 = Math.max(0, Math.min(y2 - MIN_CROP_FRAC, y1 + dy));
+                if (dragMode.includes('s')) y2 = Math.min(1, Math.max(y1 + MIN_CROP_FRAC, y2 + dy));
+
+                // Aspect Ratio Constraint w&auml;hrend Resize
+                if (cropAspect > 0 && previewOriginal.naturalWidth) {
+                    const aspectFrac = cropAspect * previewOriginal.naturalHeight / previewOriginal.naturalWidth;
+                    const curW = x2 - x1;
+                    const curH = y2 - y1;
+                    // Verh&auml;ltnis erzwingen, abh&auml;ngig vom Drag-Modus
+                    const isCorner = dragMode.length === 2;
+                    if (isCorner) {
+                        // Beide Achsen genutzt -> nimm gr&ouml;&szlig;ere &Auml;nderung als Master
+                        if (curW / curH > aspectFrac) {
+                            // Zu breit: H&ouml;he anpassen
+                            const newH = curW / aspectFrac;
+                            if (dragMode.includes('n')) y1 = y2 - newH;
+                            else                       y2 = y1 + newH;
+                        } else {
+                            const newW = curH * aspectFrac;
+                            if (dragMode.includes('w')) x1 = x2 - newW;
+                            else                        x2 = x1 + newW;
+                        }
+                    } else if (dragMode === 'n' || dragMode === 's') {
+                        // Vertikaler Drag -> Breite folgt
+                        const newW = (y2 - y1) * aspectFrac;
+                        const cx = (dragStartCrop.x1 + dragStartCrop.x2) / 2;
+                        x1 = Math.max(0, cx - newW / 2);
+                        x2 = Math.min(1, x1 + newW);
+                    } else {
+                        // Horizontaler Drag -> H&ouml;he folgt
+                        const newH = (x2 - x1) / aspectFrac;
+                        const cy = (dragStartCrop.y1 + dragStartCrop.y2) / 2;
+                        y1 = Math.max(0, cy - newH / 2);
+                        y2 = Math.min(1, y1 + newH);
+                    }
+                    // Clamp nach Aspect-Anpassung
+                    x1 = Math.max(0, x1); y1 = Math.max(0, y1);
+                    x2 = Math.min(1, x2); y2 = Math.min(1, y2);
+                }
+            }
+
+            uploadedFiles[activeIndex].crop = { x1, y1, x2, y2 };
+            renderCropRect();
+        }
+
+        function onDragEnd() {
+            if (dragMode) {
+                requestPreview();   // erst nach Loslassen Vorschau triggern
+            }
+            dragMode = null;
+            document.removeEventListener('mousemove', onDragMove);
+            document.removeEventListener('mouseup', onDragEnd);
+        }
+
+        // Body von cropRect = move
+        cropRect.addEventListener('mousedown', e => {
+            if (e.target === cropRect) startDrag(e, 'move');
+        });
+        // Handles
+        cropRect.querySelectorAll('.crop-handle').forEach(h => {
+            h.addEventListener('mousedown', e => startDrag(e, h.dataset.mode));
+        });
 
         // --- Server Status Polling ---
         const ramFill = document.getElementById('ram-fill');

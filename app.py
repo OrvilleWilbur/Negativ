@@ -161,136 +161,114 @@ def _parse_params(form) -> dict:
 # Auto-Korrektur: Histogramm-basierte Analyse
 # ---------------------------------------------------------------------------
 
-# Hard-Limits für die Auto-Korrektur — robust gegen asymmetrische Histogramme
-# (z. B. Schnee- oder Himmel-dominierte Motive).
-_AUTO_BP_MAX = 5.0    # Schwarzpunkt darf 5 % nie überschreiten
-_AUTO_WP_MIN = 80.0   # Weißpunkt darf 80 % nie unterschreiten
+# --- Auto-Korrektur Konstanten ---------------------------------------------
+# Statisches Film-Gamma. Die Gradationskurve eines Films ist eine chemische
+# Konstante; sie darf nicht vom Bildinhalt variieren. 1.8 entspricht etwa
+# der Standard-Endgradation einer typischen Kleinbildfilm-Inversion.
+_AUTO_FILM_GAMMA = 1.8
+
+# Per-Kanal-Spreizung (in normalize_channel) übernimmt die Orangemasken-
+# Eliminierung. Hard-Clamps (BP ≤ 5%, WP ≥ 80%) sind jetzt dort verankert.
+_AUTO_CHANNEL_CLIP = 0.5
+
+# Center-weighted Exposure: zentraler Anteil der Bildfläche, der allein
+# als Helligkeitsreferenz dient. 0.5 = mittlere 50 % der Pixelfläche
+# (≈ 70.7 % Seitenlänge je Achse).
+_AUTO_CENTER_FRACTION = 0.5
+
+# Ziel-Median (Rec. 709 Luminanz) der zentralen Region.
+_AUTO_TARGET_LUMINANCE = 0.45
+
+# Auf welchen Slider-Bereich wird die Helligkeitsabweichung abgebildet.
+# Die brightness-Stufe ±100 entspricht in apply_brightness_contrast einem
+# Offset von ±30 % des Maximalwerts. Für eine moderate Korrektur clampen
+# wir den Auto-Output auf ±50.
+_AUTO_BRIGHTNESS_CLAMP = 50
 
 
 def analyze_negative(img: np.ndarray) -> dict:
-    """Berechnet robuste Auto-Korrektur-Parameter für ein Farbnegativ.
+    """Auto-Korrektur-Parameter nach Film-Inversions-Architektur.
 
-    Architektur:
+    Vier architektonische Vorgaben:
 
-    1. **Schwarz-/Weißpunkt** strikt perzentilbasiert (0.5 % / 99.5 %) mit
-       harten Clamps: BP ∈ [0, 5] %, WP ∈ [80, 100] %. Verhindert, dass
-       Motive mit dominanten hellen Flächen (Schnee, Himmel) extreme
-       Schwarzpunkte erzeugen und so die Tiefenzeichnung zerstören.
+    1. **Statisches Basis-Gamma**: Gamma fix auf ``_AUTO_FILM_GAMMA`` (1.8).
+       Die Filmkennlinie ist eine chemische Konstante — keine dynamische
+       Ableitung aus dem Histogramm.
 
-    2. **Median-Luminanz** (Rec. 709 gewichtet) als Helligkeitsmetrik für
-       Auto-Exposure und Gamma. Outlier-resistent gegenüber großflächigen
-       einfarbigen Bereichen — anders als der arithmetische Mittelwert.
+    2. **Kanalgetrennte Spreizung mit Clamping** (Schritt 2 der Pipeline,
+       siehe ``normalize_channel``): R, G und B erhalten unabhängig je ihr
+       eigenes Min/Max-Mapping mit harten Sicherheitsgrenzen
+       (BP ≤ 5 %, WP ≥ 80 %). Eliminiert die orangefarbene Filmmaske
+       physikalisch korrekt — der globale Schwarz-/Weißpunkt bleibt
+       deshalb auf seinem Neutralwert (0 / 100).
 
-    3. **Parameter-Neutralität**: Schatten, Highlights, Kontrast und
-       Helligkeit werden nicht algorithmisch gesetzt, sondern auf 0
-       (Neutralwert) zurückgegeben. Die Basiskontrastierung erfolgt
-       ausschließlich über Schwarzpunkt, Weißpunkt und globales Gamma.
-       Die chromatischen Korrekturen (RGB-Gamma, Temperatur, Tönung)
-       bleiben als separate Berechnung erhalten.
+    3. **Mittenbetonte Helligkeitsmetrik**: Rec. 709 Luminanz wird
+       ausschließlich auf den zentralen 50 % der Bildfläche gemessen
+       (Center-Crop-Matrix). Schützt das Hauptmotiv vor Fehlbelichtungen
+       durch dominante Randbereiche (Himmel, Schnee).
+
+    4. **Farb-Parameter-Neutralität**: Temperatur, Tönung und R/G/B-Gamma
+       bleiben auf ihren Neutralwerten — die Farbkorrektur passiert
+       vollständig in Schritt 2.
 
     Args:
         img: Negativ-Scan (BGR, uint8 oder uint16). Wenn Crop aktiv ist,
-            sollte der Aufrufer das Bild bereits zugeschnitten übergeben,
-            damit nur der gewählte Ausschnitt analysiert wird.
+            sollte der Aufrufer das Bild bereits zugeschnitten übergeben.
 
     Returns:
         Dict mit allen Slider-Parametern als JSON-serialisierbare Strings.
     """
     max_val = np.iinfo(img.dtype).max
 
-    # Invertieren und auf [0, 1] normalisieren
+    # Invertieren auf [0, 1]
     inv_f = (max_val - img).astype(np.float64) / max_val
-    b, g, r = cv2.split(inv_f)
 
     # ------------------------------------------------------------------
-    # 1. Schwarz-/Weißpunkt aus Perzentilen, mit harten Clamps
+    # Center-Crop-Matrix: zentrale 50 % der Bildfläche
     # ------------------------------------------------------------------
-    r_p01, r_p99 = np.percentile(r, [0.5, 99.5])
-    g_p01, g_p99 = np.percentile(g, [0.5, 99.5])
-    b_p01, b_p99 = np.percentile(b, [0.5, 99.5])
+    # 50 % Fläche bei isotroper Skalierung → sqrt(0.5) ≈ 0.707 je Achse.
+    h, w = inv_f.shape[:2]
+    side = float(np.sqrt(_AUTO_CENTER_FRACTION))
+    half_h = max(1, int(h * side / 2))
+    half_w = max(1, int(w * side / 2))
+    cy, cx = h // 2, w // 2
+    center = inv_f[cy - half_h : cy + half_h, cx - half_w : cx + half_w]
 
-    avg_p01 = (r_p01 + g_p01 + b_p01) / 3.0
-    avg_p99 = (r_p99 + g_p99 + b_p99) / 3.0
-
-    black_point = float(np.clip(avg_p01 * 100.0, 0.0, _AUTO_BP_MAX))
-    white_point = float(np.clip(avg_p99 * 100.0, _AUTO_WP_MIN, 100.0))
-
-    # ------------------------------------------------------------------
-    # 2. Globales Gamma aus Median-Luminanz (Rec. 709)
-    # ------------------------------------------------------------------
-    luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
-    lum_median = float(np.median(luminance))
-
-    target_median = 0.45  # natürlich wirkende Mitteltöne
-    # apply_gamma rechnet pixel^(1/gamma). Damit median^(1/gamma) = target gilt:
-    #   gamma = log(median) / log(target)
-    # gamma > 1 hellt auf, < 1 dunkelt ab — passt zur Slider-Semantik.
-    if lum_median > 0.01 and target_median > 0.01:
-        global_gamma = float(
-            np.clip(np.log(max(lum_median, 0.01)) / np.log(target_median),
-                    0.5, 2.5)
-        )
+    # Rec. 709 Luminanz auf der Center-Matrix, Median als Referenz
+    if center.size > 0 and center.ndim == 3:
+        cb, cg, cr = cv2.split(center)
+        center_luminance = 0.2126 * cr + 0.7152 * cg + 0.0722 * cb
+        center_median = float(np.median(center_luminance))
     else:
-        global_gamma = 1.2
+        center_median = _AUTO_TARGET_LUMINANCE
 
     # ------------------------------------------------------------------
-    # 3. Chromatische Korrektur (unverändert: RGB-Gamma, Temperatur, Tönung)
-    #    Verwenden weiterhin Kanal-Mediane — robust gegen Outlier
+    # Helligkeits-Slider aus der Abweichung Mitten-Median ↔ Ziel
     # ------------------------------------------------------------------
-    r_med = float(np.median(r))
-    g_med = float(np.median(g))
-    b_med = float(np.median(b))
-
-    target_ch = (r_med + g_med + b_med) / 3.0
-    if target_ch < 0.05:
-        target_ch = 0.3
-
-    def calc_channel_gamma(ch_med: float, target: float) -> float:
-        if ch_med < 0.02 or target < 0.02:
-            return 1.0
-        raw = np.log(max(ch_med, 0.01)) / np.log(max(target, 0.01))
-        # 50 % Stärke — natürliche Farbabstufungen erhalten
-        raw = 1.0 + (raw - 1.0) * 0.5
-        return float(np.clip(raw, 0.7, 1.6))
-
-    gamma_r = calc_channel_gamma(r_med, target_ch)
-    gamma_g = calc_channel_gamma(g_med, target_ch)
-    gamma_b = calc_channel_gamma(b_med, target_ch)
-
-    # Grün als Anker normalisieren
-    if gamma_g > 0:
-        gamma_r = float(np.clip(gamma_r / gamma_g, 0.7, 1.6))
-        gamma_b = float(np.clip(gamma_b / gamma_g, 0.7, 1.6))
-        gamma_g = 1.0
-
-    # Temperatur aus R/B-Median-Verhältnis
-    if r_med > 0.01 and b_med > 0.01:
-        temperature = int(np.clip((1.0 - r_med / b_med) * 60.0, -40, 60))
-    else:
-        temperature = 30
-
-    # Tönung aus G vs. (R+B)/2
-    rb_avg = (r_med + b_med) / 2.0
-    if rb_avg > 0.01:
-        tint = int(np.clip((1.0 - g_med / rb_avg) * 40.0, -40, 40))
-    else:
-        tint = 0
+    # Linear gemappt: ein Delta von 0.5 entspricht voller Slider-Auslenkung.
+    # Geclampt auf ±_AUTO_BRIGHTNESS_CLAMP, damit Auto nicht aggressiv wird.
+    delta = _AUTO_TARGET_LUMINANCE - center_median
+    brightness = int(np.clip(delta * 100.0,
+                             -_AUTO_BRIGHTNESS_CLAMP,
+                             _AUTO_BRIGHTNESS_CLAMP))
 
     # ------------------------------------------------------------------
-    # 4. Parameter-Neutralität: Schatten/Highlights/Kontrast/Helligkeit = 0
-    #    Basiskontrast erfolgt ausschließlich über BP/WP + Gamma.
+    # Output: alle übrigen Parameter neutral.
+    # Die Per-Kanal-Spreizung in Schritt 2 (normalize_channel) übernimmt
+    # die Orangemasken-Eliminierung; die globalen Levels-, Farb- und
+    # Tonwert-Slider bleiben unangetastet.
     # ------------------------------------------------------------------
     return {
-        "clip":        "0.1",
-        "gamma":       str(round(global_gamma, 2)),
-        "temperature": str(temperature),
-        "tint":        str(tint),
-        "gamma_r":     str(round(gamma_r, 2)),
-        "gamma_g":     str(round(gamma_g, 2)),
-        "gamma_b":     str(round(gamma_b, 2)),
-        "black_point": str(round(black_point, 1)),
-        "white_point": str(round(white_point, 1)),
-        "brightness":  "0",
+        "clip":        str(_AUTO_CHANNEL_CLIP),
+        "gamma":       str(_AUTO_FILM_GAMMA),
+        "temperature": "0",
+        "tint":        "0",
+        "gamma_r":     "1.0",
+        "gamma_g":     "1.0",
+        "gamma_b":     "1.0",
+        "black_point": "0.0",
+        "white_point": "100.0",
+        "brightness":  str(brightness),
         "contrast":    "0",
         "shadows":     "0",
         "highlights":  "0",

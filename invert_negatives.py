@@ -21,6 +21,13 @@ CLIP_PERCENT: float = 0.1        # Prozent der Pixel, die oben/unten abgeschnitt
 GAMMA: float = 1.2               # Gamma-Korrektur für mittlere Tonwerte
 SUPPORTED_EXTENSIONS: set[str] = {".tif", ".tiff", ".png", ".jpg", ".jpeg"}
 
+# Hard-Clamps für die kanalgetrennte Spreizung. Verhindern, dass eine
+# extreme Histogramm-Verteilung in einem Kanal (z. B. Schnee-dominierter
+# Rotkanal) zu einer aggressiven Spreizung führt, die Tiefenzeichnung
+# verbrennt oder Highlights ausreißt.
+NORMALIZE_BP_MAX: float = 0.05   # Per-Kanal-Schwarzpunkt darf 5% nie überschreiten
+NORMALIZE_WP_MIN: float = 0.80   # Per-Kanal-Weißpunkt darf 80% nie unterschreiten
+
 
 # ---------------------------------------------------------------------------
 # Kernfunktionen
@@ -71,11 +78,20 @@ def invert(img: np.ndarray) -> np.ndarray:
 
 
 def normalize_channel(channel: np.ndarray, clip_percent: float) -> np.ndarray:
-    """Kanalgetrennte Histogrammspreizung mit Clipping.
+    """Kanalgetrennte Histogrammspreizung mit Clipping und Hard-Clamps.
 
-    Schneidet die dunkelsten und hellsten `clip_percent` % der Pixel ab
-    und spreizt die verbleibenden Werte linear auf das volle Spektrum.
-    Dies neutralisiert die Orangemaske des Farbnegativs.
+    Berechnet pro Kanal unabhängig die Perzentile für Schwarz- und Weißpunkt
+    (clip_percent % an jedem Ende) und spreizt die verbleibenden Werte linear
+    auf das volle Spektrum. Dies eliminiert die spezifische Dichte der
+    orangefarbenen Filmmaske physikalisch korrekt — jeder Kanal erhält sein
+    eigenes Min/Max-Mapping.
+
+    Zusätzlich werden harte Sicherheitsgrenzen erzwungen
+    (`NORMALIZE_BP_MAX`, `NORMALIZE_WP_MIN`): selbst wenn ein Kanal ein
+    extrem asymmetrisches Histogramm hat (z. B. Schnee-dominierter Rotkanal
+    mit 0,5 %-Perzentil bei 40 % Helligkeit), werden Tiefen und Lichter
+    erhalten, weil das Mapping nicht aggressiver als
+    [BP_MAX, WP_MIN] → [0, max] werden darf.
 
     Args:
         channel: Einzelner Farbkanal (2D, uint8 oder uint16).
@@ -95,10 +111,15 @@ def normalize_channel(channel: np.ndarray, clip_percent: float) -> np.ndarray:
     cumsum = np.cumsum(hist)
     clip_count = total_pixels * (clip_percent / 100.0)
 
-    # Untere Schwelle: erstes Bin, dessen kumulative Summe > clip_count
-    low = np.searchsorted(cumsum, clip_count)
-    # Obere Schwelle: erstes Bin, dessen kumulative Summe > total - clip_count
-    high = np.searchsorted(cumsum, total_pixels - clip_count)
+    # Untere/obere Schwelle aus Perzentilen
+    low = int(np.searchsorted(cumsum, clip_count))
+    high = int(np.searchsorted(cumsum, total_pixels - clip_count))
+
+    # Hard-Clamps: Per-Kanal-BP nie über 5 %, Per-Kanal-WP nie unter 80 %.
+    # Wirkt nur, wenn das Perzentil außerhalb des sicheren Bereichs liegt
+    # — bei normalen Bildern bleibt das Mapping unverändert.
+    low = min(low, int(max_val * NORMALIZE_BP_MAX))
+    high = max(high, int(max_val * NORMALIZE_WP_MIN))
 
     # Sicherheitsgrenzen
     if low >= high:

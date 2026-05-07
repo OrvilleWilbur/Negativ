@@ -1188,6 +1188,8 @@
                         throw new Error(msg || 'Verarbeitung fehlgeschlagen');
                     }
                     const blob = await resp.blob();
+                    // Alte Object-URL freigeben (Re-Download des gleichen Bildes)
+                    if (entry.resultUrl) URL.revokeObjectURL(entry.resultUrl);
                     entry.resultUrl = URL.createObjectURL(blob);
 
                     // Save-Dialog automatisch ausl&ouml;sen

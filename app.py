@@ -8,7 +8,9 @@ Auto-Korrektur per Histogramm-Analyse, Download der konvertierten Positive.
 import io
 import base64
 import logging
+import os
 import time
+import traceback
 import uuid
 import tempfile
 import threading
@@ -16,8 +18,9 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import psutil
 from flask import Flask, request, jsonify, send_file, render_template
-from PIL import Image
+from PIL import Image, ImageOps
 
 # Diagnose-Logging der Pipeline (insbesondere normalize_channel) auf stderr.
 # `force=True` überschreibt die Default-Konfiguration von Gunicorn, damit auch
@@ -87,6 +90,19 @@ def _make_thumbnail(img: np.ndarray) -> np.ndarray:
     return cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
 
 
+def _encode_jpeg_preview(img: np.ndarray, quality: int = 85) -> bytes:
+    """Encodiert ein BGR-Array als JPEG-Bytes für die Vorschau.
+
+    Konvertiert 16-bit nach 8-bit (für JPEG nötig) und benutzt einen
+    moderaten Qualitätswert für schnelle Auslieferung. Wird von
+    /api/upload, /api/preview und /api/original gemeinsam genutzt.
+    """
+    if img.dtype == np.uint16:
+        img = (img / 256).astype(np.uint8)
+    _, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, quality])
+    return buf.tobytes()
+
+
 # ---------------------------------------------------------------------------
 # Upload-Hilfsfunktionen
 # ---------------------------------------------------------------------------
@@ -105,6 +121,10 @@ def load_upload(file_storage) -> tuple[np.ndarray, str]:
         if not HEIC_SUPPORTED:
             raise ValueError("HEIC-Support nicht installiert (pip install pillow-heif)")
         pil_img = Image.open(io.BytesIO(raw))
+        # iPhone-HEICs speichern Hochformat oft als gedrehtes Querformat plus
+        # EXIF-Orientation-Tag. exif_transpose() wendet die Transformation an
+        # und entfernt das Tag, damit das Array tatsächlich richtig herum ist.
+        pil_img = ImageOps.exif_transpose(pil_img)
         pil_img = pil_img.convert("RGB")
         img = np.array(pil_img)
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
@@ -336,11 +356,7 @@ def api_upload():
         }
 
     # Original-Thumbnail als Base64 für Anzeige
-    thumb_8bit = thumb
-    if thumb.dtype == np.uint16:
-        thumb_8bit = (thumb / 256).astype(np.uint8)
-    _, buf = cv2.imencode(".jpg", thumb_8bit, [cv2.IMWRITE_JPEG_QUALITY, 85])
-    original_b64 = base64.b64encode(buf.tobytes()).decode()
+    original_b64 = base64.b64encode(_encode_jpeg_preview(thumb)).decode()
 
     return jsonify({
         "session_id": session_id,
@@ -372,10 +388,7 @@ def api_original():
         return jsonify({"error": "Session abgelaufen"}), 404
 
     thumb = apply_rotation(entry["thumb"], rotation)
-    if thumb.dtype == np.uint16:
-        thumb = (thumb / 256).astype(np.uint8)
-    _, buf = cv2.imencode(".jpg", thumb, [cv2.IMWRITE_JPEG_QUALITY, 85])
-    return send_file(io.BytesIO(buf.tobytes()), mimetype="image/jpeg")
+    return send_file(io.BytesIO(_encode_jpeg_preview(thumb)), mimetype="image/jpeg")
 
 
 @app.route("/api/preview", methods=["POST"])
@@ -395,12 +408,7 @@ def api_preview():
     thumb = entry["thumb"]
 
     result = process_negative(thumb, **params)
-
-    if result.dtype == np.uint16:
-        result = (result / 256).astype(np.uint8)
-
-    _, buf = cv2.imencode(".jpg", result, [cv2.IMWRITE_JPEG_QUALITY, 85])
-    return send_file(io.BytesIO(buf.tobytes()), mimetype="image/jpeg")
+    return send_file(io.BytesIO(_encode_jpeg_preview(result)), mimetype="image/jpeg")
 
 
 @app.route("/api/analyze", methods=["POST"])
@@ -457,7 +465,8 @@ def api_process():
             suffix = entry["suffix"]
             filename = entry["filename"]
             if suffix in {".heic", ".heif"}:
-                pil_img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+                pil_img = Image.open(io.BytesIO(raw_bytes))
+                pil_img = ImageOps.exif_transpose(pil_img).convert("RGB")
                 img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
             else:
                 arr = np.frombuffer(raw_bytes, dtype=np.uint8)
@@ -490,7 +499,6 @@ def api_process():
         }), 507
     except Exception as e:
         # Vollen Stacktrace ins Server-Log, kompakte Meldung an den Client
-        import traceback
         traceback.print_exc()
         return jsonify({
             "error": f"{type(e).__name__}: {e}"
@@ -510,7 +518,6 @@ def api_process():
 @app.route("/api/status")
 def api_status():
     """Gibt Server-Auslastung zurück: RAM, Cache, CPU."""
-    import psutil
     proc = psutil.Process()
     mem = proc.memory_info()
     vm = psutil.virtual_memory()
@@ -531,6 +538,5 @@ def api_status():
 
 
 if __name__ == "__main__":
-    import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)

@@ -262,7 +262,7 @@ def apply_gamma(img: np.ndarray, gamma: float) -> np.ndarray:
 def apply_channel_gamma(
     channel: np.ndarray, gamma: float
 ) -> np.ndarray:
-    """Wendet Gamma-Korrektur auf einen einzelnen Kanal an.
+    """Wendet Gamma-Korrektur auf einen einzelnen Kanal an (via LUT).
 
     Args:
         channel: Einzelner Farbkanal (2D, uint8 oder uint16).
@@ -275,20 +275,24 @@ def apply_channel_gamma(
         return channel
     max_val = np.iinfo(channel.dtype).max
     inv_gamma = 1.0 / gamma
-    result = channel.astype(np.float32) / max_val
-    np.power(result, inv_gamma, out=result)
-    result *= max_val
-    np.clip(result, 0, max_val, out=result)
-    return result.astype(channel.dtype)
+
+    # LUT bauen: pixel^(1/gamma) für jede mögliche Eingangs-Quantisierung
+    lut = np.arange(max_val + 1, dtype=np.float32) / max_val
+    np.power(lut, inv_gamma, out=lut)
+    lut *= max_val
+    np.clip(lut, 0, max_val, out=lut)
+    return lut.astype(channel.dtype)[channel]
 
 
 def apply_white_balance(
     img: np.ndarray, temperature: float, tint: float
 ) -> np.ndarray:
-    """Weißabgleich über Temperatur und Tönung.
+    """Weißabgleich über Temperatur und Tönung (via Per-Kanal-LUTs).
 
     Temperatur verschiebt die Blau-Gelb-Balance (Rot+Grün vs. Blau),
-    Tönung verschiebt die Grün-Magenta-Balance.
+    Tönung verschiebt die Grün-Magenta-Balance. Drei unabhängige LUTs
+    (eine pro Kanal) — konstanter Speicher-Footprint statt voller
+    float32-Bildkopie.
 
     Args:
         img: BGR-Bild (uint8 oder uint16).
@@ -302,25 +306,18 @@ def apply_white_balance(
         return img
 
     max_val = np.iinfo(img.dtype).max
-    result = img.astype(np.float32)
-
-    b, g, r = cv2.split(result)
-
-    # Temperatur: positiv = wärmer (Rot hoch, Blau runter)
-    # Skalierung: ±100 → ±20% Anpassung
-    temp_factor = temperature / 500.0
-    r *= (1.0 + temp_factor)
-    b *= (1.0 - temp_factor)
-
-    # Tönung: positiv = magenta (Grün runter), negativ = grüner (Grün hoch)
+    temp_factor = temperature / 500.0   # ±100 → ±20 % Anpassung
     tint_factor = tint / 500.0
-    g *= (1.0 - tint_factor)
 
-    np.clip(r, 0, max_val, out=r)
-    np.clip(g, 0, max_val, out=g)
-    np.clip(b, 0, max_val, out=b)
+    # Drei skalare Multiplikator-LUTs
+    base = np.arange(max_val + 1, dtype=np.float32)
+    r_lut = np.clip(base * (1.0 + temp_factor), 0, max_val).astype(img.dtype)
+    g_lut = np.clip(base * (1.0 - tint_factor), 0, max_val).astype(img.dtype)
+    b_lut = np.clip(base * (1.0 - temp_factor), 0, max_val).astype(img.dtype)
 
-    return cv2.merge([b, g, r]).astype(img.dtype)
+    # Per-Kanal-Anwendung über Fancy-Indexing
+    b, g, r = cv2.split(img)
+    return cv2.merge([b_lut[b], g_lut[g], r_lut[r]])
 
 
 def apply_input_levels(
